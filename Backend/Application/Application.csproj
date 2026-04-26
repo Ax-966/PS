@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="Interfaces/" />
+    <Folder Include="Models/" />
+    <Folder Include="UseCases/" />
+    <Folder Include="UseCases/Events/" />
+    <Folder Include="UseCases/Events/Commands/" />
+    <Folder Include="UseCases/Events/Queries/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Domain/Domain.csproj" />
+  </ItemGroup>
+
+</Project>
