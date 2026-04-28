@@ -1,5 +1,6 @@
-using Microsoft.EntityFrameworkCore;
+using System.Reflection.Emit;
 using Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence;
 
@@ -44,10 +45,14 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(r => r.SeatId);
 
-        // AuditLog pertenece a un User (opcional)
+        // AuditLog pertenece a un User
         modelBuilder.Entity<AuditLog>()
             .HasOne(a => a.User)
             .WithMany()
             .HasForeignKey(a => a.UserId);
+
+        // Event - configuracion basica
+        modelBuilder.Entity<Event>()
+            .HasKey(e => e.Id);
     }
 }
