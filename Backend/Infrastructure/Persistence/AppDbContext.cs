@@ -20,5 +20,34 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Event tiene muchos Sectors
+        modelBuilder.Entity<Sector>()
+            .HasOne(s => s.Event)
+            .WithMany(e => e.Sectors)
+            .HasForeignKey(s => s.EventId);
+
+        // Sector tiene muchos Seats
+        modelBuilder.Entity<Seat>()
+            .HasOne(s => s.Sector)
+            .WithMany(s => s.Seats)
+            .HasForeignKey(s => s.SectorId);
+
+        // Reservation pertenece a un User y un Seat
+        modelBuilder.Entity<Reservation>()
+            .HasOne(r => r.User)
+            .WithMany()
+            .HasForeignKey(r => r.UserId);
+
+        modelBuilder.Entity<Reservation>()
+            .HasOne(r => r.Seat)
+            .WithMany()
+            .HasForeignKey(r => r.SeatId);
+
+        // AuditLog pertenece a un User (opcional)
+        modelBuilder.Entity<AuditLog>()
+            .HasOne(a => a.User)
+            .WithMany()
+            .HasForeignKey(a => a.UserId);
     }
 }
