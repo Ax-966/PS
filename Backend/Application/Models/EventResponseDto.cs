@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Application.Models
 {
-    public class EventResponse
+    public class EventResponseDto
     {
         public int Id { get; set; }
         public string? Name { get; set; }

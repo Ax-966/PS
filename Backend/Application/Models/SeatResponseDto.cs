@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Application.Models
 {
-    public class SeatResponse
+    public class SeatResponseDto
     {
         public Guid Id { get; set; }
         public string? RowIdentifier { get; set; }
