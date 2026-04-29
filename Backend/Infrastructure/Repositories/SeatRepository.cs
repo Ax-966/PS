@@ -24,10 +24,10 @@ public class SeatRepository : RepositoryBase<Seat>, ISeatRepository
                                                 && s.Status == "Available");
         return seats;
     }
-
     public async Task<IEnumerable<Seat>> GetSeatsByEventIdAsync(int eventId)
     {
         return await FindByConditionAsync(s => s.Sector != null
                                            && s.Sector.EventId == eventId);
     }
 }
+
