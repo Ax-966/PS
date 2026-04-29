@@ -54,5 +54,11 @@ public class AppDbContext : DbContext
         // Event - configuracion basica
         modelBuilder.Entity<Event>()
             .HasKey(e => e.Id);
+
+        // User pertenece a un Role
+        modelBuilder.Entity<User>()
+            .HasOne(u => u.Role)
+            .WithMany()
+            .HasForeignKey(u => u.RoleId);
     }
 }
