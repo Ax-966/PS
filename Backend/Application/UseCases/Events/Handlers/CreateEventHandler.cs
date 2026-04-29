@@ -1,43 +1,38 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Application.Interfaces;
+﻿using Application.Interfaces;
+using Application.Interfaces.CQRS;
 using Application.Models;
 using Application.UseCases.Events.Commands;
 
-namespace Application.UseCases.Events.Handlers
+namespace Application.UseCases.Events.Handlers;
+
+public class CreateEventHandler : ICommandHandler<CreateEvent, EventResponseDto>
 {
-    public class CreateEventHandler
+    private readonly IEventRepository _eventRepository;
+
+    public CreateEventHandler(IEventRepository eventRepository)
     {
-        private readonly IEventRepository _eventRepository;
+        _eventRepository = eventRepository;
+    }
 
-        public CreateEventHandler(IEventRepository eventRepository)
+    public async Task<EventResponseDto> HandleAsync(CreateEvent command)
+    {
+        var newEvent = new Domain.Entities.Event
         {
-            _eventRepository = eventRepository;
-        }
+            Name = command.Name,
+            EventDate = command.EventDate,
+            Venue = command.Venue,
+            Status = command.Status
+        };
 
-        public async Task<EventResponseDto> Handle(CreateEvent command)
+        await _eventRepository.CreateAsync(newEvent);
+
+        return new EventResponseDto
         {
-            var newEvent = new Domain.Entities.Event
-            {
-                Name = command.Name,
-                EventDate = command.EventDate,
-                Venue = command.Venue,
-                Status = command.Status
-            };
-
-            await _eventRepository.CreateAsync(newEvent);
-
-            return new EventResponseDto
-            {
-                Id = newEvent.Id,
-                Name = newEvent.Name,
-                EventDate = newEvent.EventDate,
-                Venue = newEvent.Venue,
-                Status = newEvent.Status
-            };
-        }
+            Id = newEvent.Id,
+            Name = newEvent.Name,
+            EventDate = newEvent.EventDate,
+            Venue = newEvent.Venue,
+            Status = newEvent.Status
+        };
     }
 }
