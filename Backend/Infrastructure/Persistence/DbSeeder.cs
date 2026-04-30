@@ -15,7 +15,7 @@ public static class DbSeeder
         {
             Name = "Aerosmith",
             EventDate = DateTime.UtcNow.AddMonths(1),
-            Venue = "Buenos Aires",
+            Venue = "Buenos Aires - Estadio Único",
             Status = "Active"
         };
 
