@@ -28,6 +28,11 @@ public class AppDbContext : DbContext
             .WithMany(e => e.Sectors)
             .HasForeignKey(s => s.EventId);
 
+        // Precision para Price
+        modelBuilder.Entity<Sector>()
+            .Property(s => s.Price)
+            .HasColumnType("decimal(18,2)");
+
         // Sector tiene muchos Seats
         modelBuilder.Entity<Seat>()
             .HasOne(s => s.Sector)

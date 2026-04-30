@@ -14,10 +14,11 @@ var builder = WebApplication.CreateBuilder(args);
 var conStrBuilder = new SqlConnectionStringBuilder(
     builder.Configuration.GetConnectionString("DefaultConnection")
 );
-conStrBuilder.Password = builder.Configuration["DbPassword"];
+conStrBuilder.Password = builder.Configuration["DbPassword"] ?? "";
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(conStrBuilder.ConnectionString));
+
 
 // ─── Servicios ────────────────────────────────────────────────────
 builder.Services.AddControllers();
