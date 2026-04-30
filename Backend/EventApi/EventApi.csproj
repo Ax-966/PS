@@ -20,4 +20,6 @@
     <ProjectReference Include="../Infrastructure/Infrastructure.csproj" />
   </ItemGroup>
 
+  <ProjectExtensions><VisualStudio><UserProperties appsettings_1json__JsonSchema="https://www.schemastore.org/aspire-8.0.json" /></VisualStudio></ProjectExtensions>
+
 </Project>
