@@ -2,7 +2,7 @@
 
 ## 📌 Descripción
 Este proyecto es una aplicación desarrollada en C# utilizando Visual Studio.  
-El sistema permite gestionar las funcionalidades principales del proyecto
+El sistema permite gestionar las funcionalidades principales de la primera entrega del proyecto.
 
 ---
 
