@@ -28,8 +28,11 @@ namespace Application.UseCases.Seats.Handlers
                 Id = s.Id,
                 RowIdentifier = s.RowIdentifier,
                 SeatNumber = s.SeatNumber,
-                Status = s.Status
+                Status = s.Status,
+                SectorId = s.SectorId
             });
+
+
         }
     }
 }

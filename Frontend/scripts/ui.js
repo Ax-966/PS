@@ -193,7 +193,7 @@ const UI = {
    * @param {string} view   - Nombre de la vista
    * @param {Object} params - Parámetros opcionales (ej: { eventId })
    */
-  renderView(view, params = {}) {
+  async renderView(view, params = {}) {
     this.currentView = view;
     const main = document.getElementById('main-content');
     if (!main) return;
@@ -207,30 +207,30 @@ const UI = {
     let html = '';
     switch (view) {
       case 'home':
-        html = this._buildHome();
+        html = await this._buildHome();
         break;
       case 'event-detail':
         this.currentEventId  = params.eventId;
         if (!this.currentSectorId) {
-          const ev = Events.getById(params.eventId);
+          const ev = await Events.getById(params.eventId);
           this.currentSectorId = ev?.sectors?.[0]?.id || null;
         }
-        html = this._buildEventDetail(params.eventId);
+        html = await this._buildEventDetail(params.eventId);
         break;
       case 'my-tickets':
-        html = this._buildMyTickets();
+        html = await this._buildMyTickets();
         break;
       case 'admin':
         if (!Auth.isAdmin()) { html = '<div class="error-state">Acceso denegado.</div>'; break; }
-        html = this._buildAdmin();
+        html = await this._buildAdmin();
         break;
       case 'admin-form':
         if (!Auth.isAdmin()) { html = '<div class="error-state">Acceso denegado.</div>'; break; }
-        html = this._buildEventForm(params.eventId || null);
+        html = await this._buildEventForm(params.eventId || null);
         break;
       case 'admin-audit':
         if (!Auth.isAdmin()) { html = '<div class="error-state">Acceso denegado.</div>'; break; }
-        html = this._buildAuditLogs();
+        html = await this._buildAuditLogs();
         break;
       default:
         html = '<div class="error-state">Vista no encontrada.</div>';
@@ -245,17 +245,19 @@ const UI = {
   /* ----------------------------------------------------------
      VISTA: HOME — Listado de eventos + buscador/filtros
      ---------------------------------------------------------- */
-  _buildHome() {
-    const events = Events.getAll();
-    if (events.length === 0) {
-      return `
-        <div class="empty-state">
-          <div class="empty-icon">🎸</div>
-          <p>No hay eventos disponibles aún.</p>
-          ${Auth.isAdmin() ? '<button class="btn-primary" onclick="UI.renderView(\'admin-form\', {})">Crear primer evento</button>' : ''}
-        </div>
-      `;
-    }
+  async _buildHome() {
+  const events = await Events.getAll();
+
+  if (events.length === 0) {
+    return `
+      <div class="empty-state">
+        <div class="empty-icon">🎸</div>
+        <p>No hay eventos disponibles aún.</p>
+        ${Auth.isAdmin() ? '<button class="btn-primary" onclick="UI.renderView(\'admin-form\', {})">Crear primer evento</button>' : ''}
+      </div>
+    `;
+  }
+
 
     // Obtener géneros únicos para el filtro
     const genres = [...new Set(events.map(e => e.genre).filter(Boolean))].sort();
@@ -301,7 +303,7 @@ const UI = {
   },
 
   /** Filtrar eventos según los valores de búsqueda actuales. */
-  filterEvents() {
+  async filterEvents() {
     const query  = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
     const genre  = document.getElementById('filter-genre')?.value  || '';
     const avail  = document.getElementById('filter-avail')?.value  || '';
@@ -313,20 +315,22 @@ const UI = {
 
     if (clearX) clearX.classList.toggle('hidden', !query);
 
-    const events  = Events.getAll();
-    let   matched = events.filter(e => {
-      if (query && !e.name.toLowerCase().includes(query) && !e.venue.toLowerCase().includes(query)) return false;
-      if (genre && e.genre !== genre) return false;
-      if (avail) {
-        const total = e.sectors.reduce((s, sec) => s + sec.seats.length, 0);
-        const sold  = e.sectors.reduce((s, sec) => s + sec.seats.filter(se => se.status === SEAT.SOLD).length, 0);
-        const locked= e.sectors.reduce((s, sec) => s + sec.seats.filter(se => se.status === SEAT.LOCKED).length, 0);
-        const free  = total - sold - locked;
-        if (avail === 'available' && free === 0) return false;
-        if (avail === 'sold'      && free > 0)   return false;
-      }
-      return true;
-    });
+   const events = await Events.getAll();
+   console.log('Eventos recibidos:', events);
+
+let matched = events.filter(e => {
+  if (query && !e.name.toLowerCase().includes(query) && !e.venue.toLowerCase().includes(query)) return false;
+  if (genre && e.genre !== genre) return false;
+  if (avail) {
+    const total = e.sectors.reduce((s, sec) => s + sec.seats.length, 0);
+    const sold  = e.sectors.reduce((s, sec) => s + sec.seats.filter(se => se.status === SEAT.SOLD).length, 0);
+    const locked= e.sectors.reduce((s, sec) => s + sec.seats.filter(se => se.status === SEAT.LOCKED).length, 0);
+    const free  = total - sold - locked;
+    if (avail === 'available' && free === 0) return false;
+    if (avail === 'sold'      && free > 0)   return false;
+  }
+  return true;
+});
 
     if (!matched.length) {
       grid.innerHTML = `
@@ -365,16 +369,16 @@ const UI = {
 
   _buildEventCard(event) {
     // Verificar que el evento tenga sectores válidos
-    if (!event.sectors || !Array.isArray(event.sectors) || event.sectors.length === 0) {
-      return '';
-    }
+   if (!event.sectors || !Array.isArray(event.sectors) || event.sectors.length === 0) {
+    // Mostrar igual aunque no tenga sectores
+}
 
-    const date        = new Date(event.date);
-    const totalSeats  = event.sectors.reduce((sum, s) => sum + (s.seats?.length || 0), 0);
-    const soldSeats   = event.sectors.reduce((sum, s) => sum + (s.seats?.filter(se => se.status === SEAT.SOLD).length || 0), 0);
-    const lockedSeats = event.sectors.reduce((sum, s) => sum + (s.seats?.filter(se => se.status === SEAT.LOCKED).length || 0), 0);
+    const date = new Date(event.eventDate || event.date);
+    const totalSeats  = (event.sectors || []).reduce((sum, s) => sum + (s.seats?.length || 0), 0);
+    const soldSeats   = (event.sectors || []).reduce((sum, s) => sum + (s.seats?.filter(se => se.status === SEAT.SOLD).length || 0), 0);
+    const lockedSeats = (event.sectors || []).reduce((sum, s) => sum + (s.seats?.filter(se => se.status === SEAT.LOCKED).length || 0), 0);
     const available   = totalSeats - soldSeats - lockedSeats;
-    const minPrice    = Math.min(...event.sectors.map(s => s.price || 0));
+    const minPrice = event.sectors?.length > 0 ? Math.min(...event.sectors.map(s => s.price || 0)) : 0;
     const pctOccupied = totalSeats > 0 ? Math.round(((soldSeats + lockedSeats) / totalSeats) * 100) : 0;
     const isToday     = new Date().toDateString() === date.toDateString();
 
@@ -414,17 +418,33 @@ const UI = {
   /* ----------------------------------------------------------
      VISTA: DETALLE DE EVENTO + MAPA DE ASIENTOS
      ---------------------------------------------------------- */
-  _buildEventDetail(eventId) {
-    const event = Events.getById(eventId);
+  async _buildEventDetail(eventId) {
+    const event = await Events.getById(eventId);
     if (!event) return '<div class="error-state">Evento no encontrado.</div>';
+    
+    // Cargar sectores y asientos desde la API
+    const sectors = await Events.getSectorsByEvent(eventId);
+    const seatsAll = await Events.getSeatsByEvent(eventId);
+
+    console.log('Sectores:', sectors);
+    console.log('Asientos:', seatsAll);
+    
+    // Armar estructura compatible
+    event.sectors = sectors.map(s => ({
+        ...s,
+       seats: seatsAll.filter(seat => String(seat.sectorId) === String(s.id)).map((seat, index) => ({
+    ...seat,
+    status: seat.status?.toLowerCase(),
+    row: Math.floor(index / 10) + 1,
+    col: (index % 10) + 1 
+}))
+}));
 
     // Asegurar sector válido
-    if (!this.currentSectorId || !event.sectors.find(s => s.id === this.currentSectorId)) {
-      this.currentSectorId = event.sectors[0]?.id || null;
-    }
+    this.currentSectorId = Number(this.currentSectorId) || Number(event.sectors[0]?.id) || null;
 
     const sector = event.sectors.find(s => s.id === this.currentSectorId);
-    const date   = new Date(event.date);
+    const date = new Date(event.eventDate || event.date);
 
     // Estadísticas por sector para barra de ocupación
     const sectorStats = event.sectors.map(s => {
@@ -522,8 +542,8 @@ const UI = {
       return '<p style="text-align:center;color:var(--text-3);padding:40px;">Este sector no tiene butacas configuradas.</p>';
     }
 
-    const rows        = Math.max(...sector.seats.map(s => s.row));
-    const cols        = Math.max(...sector.seats.map(s => s.col));
+    const rows = Math.max(...sector.seats.map(s => s.row || s.seatNumber || 1));
+    const cols = Math.max(...sector.seats.map(s => s.col || 1));
     const selectedIds = new Set(this.selectedSeats.map(s => s.seatId));
     const username    = Auth.currentUser?.username || '';
 
@@ -531,7 +551,7 @@ const UI = {
 
     for (let r = 1; r <= rows; r++) {
       for (let c = 1; c <= cols; c++) {
-        const seat = sector.seats.find(s => s.row === r && s.col === c);
+        const seat = sector.seats.find(s => (s.row === r && s.col === c) || s.seatNumber === ((r-1)*cols + c));
         if (!seat) {
           html += `<div class="seat placeholder" aria-hidden="true"></div>`;
           continue;
@@ -581,9 +601,9 @@ const UI = {
 
   /** Cambiar de sector activo sin recargar toda la vista. */
   switchSector(eventId, sectorId) {
-    this.currentSectorId = sectorId;
+    this.currentSectorId = Number(sectorId);
     this.renderView('event-detail', { eventId });
-  },
+},
 
   /* ----------------------------------------------------------
      TOOLTIP DE BUTACA
@@ -631,7 +651,7 @@ const UI = {
    * Si ya está en la selección → liberar.
    * Si está libre → intentar bloquear.
    */
-  handleSeatClick(eventId, sectorId, seatId, row, col, price) {
+  async handleSeatClick(eventId, sectorId, seatId, row, col, price) {
     const username = Auth.currentUser?.username;
     if (!username) return;
 
@@ -647,7 +667,7 @@ const UI = {
     }
 
     // Intentar bloquear en el "backend" (localStorage)
-    const result = Seats.lock(eventId, sectorId, seatId, username);
+    const result = Reservations.create(eventId, sectorId, seatId, username);
 
     if (result.success) {
       const event  = Events.getById(eventId);
@@ -709,7 +729,7 @@ const UI = {
   },
 
   /** Actualizar solo el mapa de butacas sin re-renderizar toda la vista. */
-  _refreshSeatMap() {
+  async _refreshSeatMap() {
     if (this.currentView !== 'event-detail' || !this.currentEventId) return;
 
     const event  = Events.getById(this.currentEventId);
@@ -771,7 +791,7 @@ const UI = {
   },
 
   /** Quitar una butaca del carrito y liberar su bloqueo. */
-  removeSeat(seatId) {
+  async removeSeat(seatId) {
     const idx = this.selectedSeats.findIndex(s => s.seatId === seatId);
     if (idx < 0) return;
     const sel = this.selectedSeats[idx];
@@ -837,7 +857,7 @@ const UI = {
   },
 
   /** Confirmar la compra de todas las butacas seleccionadas. */
-  _handlePurchase() {
+  async _handlePurchase() {
     if (!this.selectedSeats.length) return;
 
     const result = Seats.purchase(this.selectedSeats, Auth.currentUser?.username || '');
@@ -883,20 +903,20 @@ const UI = {
   /* ----------------------------------------------------------
      VISTA: MIS ENTRADAS
      ---------------------------------------------------------- */
-  _buildMyTickets() {
-    const username = Auth.currentUser?.username || '';
-    const events   = Events.getAll();
-    const tickets  = [];
+  async _buildMyTickets() {
+  const username = Auth.currentUser?.username || '';
+  const events   = await Events.getAll();
+  const tickets  = [];
 
-    events.forEach(event => {
-      if (!event.sectors || !Array.isArray(event.sectors)) return;
-      event.sectors.forEach(sector => {
-        if (!sector.seats || !Array.isArray(sector.seats)) return;
-        sector.seats
-          .filter(s => s.soldTo === username)
-          .forEach(seat => tickets.push({ event, sector, seat }));
-      });
+  events.forEach(event => {
+    if (!event.sectors || !Array.isArray(event.sectors)) return;
+    event.sectors.forEach(sector => {
+      if (!sector.seats || !Array.isArray(sector.seats)) return;
+      sector.seats
+        .filter(s => s.soldTo === username)
+        .forEach(seat => tickets.push({ event, sector, seat }));
     });
+  });
 
     if (!tickets.length) {
       return `
@@ -936,7 +956,7 @@ const UI = {
   },
 
   _buildTicketGroup({ event, items }) {
-    const date = new Date(event.date);
+    const date = new Date(event.eventDate || event.date);
     return `
       <div class="ticket-group">
         <h3 class="ticket-event-name">${this._escapeHtml(event.name)}</h3>
@@ -952,7 +972,7 @@ const UI = {
   },
 
   _buildTicketCard({ event, sector, seat }) {
-    const date = new Date(event.date);
+    const date = new Date(event.eventDate || event.date);
     return `
       <div class="ticket-card" role="article" aria-label="Entrada para ${event.name}">
         <div class="ticket-perforation" aria-hidden="true"></div>
@@ -980,17 +1000,18 @@ const UI = {
   /* ----------------------------------------------------------
      VISTA DE IMPRESIÓN
      ---------------------------------------------------------- */
-  showPrintView() {
-    const username = Auth.currentUser?.username || '';
-    const events   = Events.getAll();
-    const tickets  = [];
-    events.forEach(event => {
-      event.sectors.forEach(sector => {
-        sector.seats
-          .filter(s => s.soldTo === username)
-          .forEach(seat => tickets.push({ event, sector, seat }));
-      });
+  async showPrintView() {
+  const username = Auth.currentUser?.username || '';
+  const events   = await Events.getAll();
+  const tickets  = [];
+
+  events.forEach(event => {
+    event.sectors.forEach(sector => {
+      sector.seats
+        .filter(s => s.soldTo === username)
+        .forEach(seat => tickets.push({ event, sector, seat }));
     });
+  });
 
     if (!tickets.length) { this.showToast('No tenés entradas para imprimir.', 'info'); return; }
 
@@ -1008,7 +1029,7 @@ const UI = {
           </div>
         </div>
         ${tickets.map(t => {
-          const date = new Date(t.event.date);
+          const date = new Date(event.eventDate || event.date);
           const id   = `TV-${t.seat.id.toUpperCase().slice(-8)}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
           return `
             <div class="print-ticket">
@@ -1052,9 +1073,9 @@ const UI = {
   /* ----------------------------------------------------------
      VISTA: ADMIN — Panel de gestión con dashboard
      ---------------------------------------------------------- */
-  _buildAdmin() {
-    const events = Events.getAll();
-    const logs   = Audit.getLogs();
+ async _buildAdmin(){
+  const events = await Events.getAll();
+  const logs   = Audit.getLogs();
 
     // ── Calcular estadísticas globales ──
     let totalSeats  = 0, soldSeats = 0, lockedSeats = 0, totalRevenue = 0;
@@ -1133,7 +1154,7 @@ const UI = {
       return '';
     }
 
-    const date        = new Date(event.date);
+    const date = new Date(event.eventDate || event.date);
     const totalSeats  = event.sectors.reduce((sum, s) => sum + (s.seats?.length || 0), 0);
     const soldSeats   = event.sectors.reduce((sum, s) => sum + (s.seats?.filter(se => se.status === SEAT.SOLD).length || 0), 0);
     const lockedSeats = event.sectors.reduce((sum, s) => sum + (s.seats?.filter(se => se.status === SEAT.LOCKED).length || 0), 0);
@@ -1169,7 +1190,7 @@ const UI = {
   },
 
   /** Liberar todos los bloqueos temporales de un evento (útil para limpieza). */
-  _confirmResetSeats(eventId) {
+  async _confirmResetSeats(eventId) {
     const event = Events.getById(eventId);
     if (!event || !event.sectors) return;
     const locked = event.sectors.reduce((s, sec) => s + (sec.seats?.filter(se => se.status === SEAT.LOCKED).length || 0), 0);
@@ -1188,7 +1209,7 @@ const UI = {
     this.renderView('admin');
   },
 
-  _confirmDeleteEvent(eventId) {
+  async _confirmDeleteEvent(eventId) {
     const event = Events.getById(eventId);
     if (!event) return;
     if (!confirm(`¿Eliminar "${event.name}"?\n\nEsta acción no se puede deshacer.`)) return;
@@ -1307,7 +1328,7 @@ const UI = {
     }
   },
 
-  _saveEvent(eventId) {
+  async _saveEvent(eventId) {
     const name  = document.getElementById('f-name')?.value.trim() || '';
     const date  = document.getElementById('f-date')?.value || '';
     const venue = document.getElementById('f-venue')?.value.trim() || '';

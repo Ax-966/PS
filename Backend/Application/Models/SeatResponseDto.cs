@@ -12,5 +12,7 @@ namespace Application.Models
         public string? RowIdentifier { get; set; }
         public int SeatNumber { get; set; }
         public string? Status { get; set; }
+
+        public int SectorId { get; set; }
     }
 }

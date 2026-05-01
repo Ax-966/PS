@@ -15,10 +15,19 @@ var conStrBuilder = new SqlConnectionStringBuilder(
     builder.Configuration.GetConnectionString("DefaultConnection")
 );
 conStrBuilder.Password = builder.Configuration["DbPassword"] ?? "";
-
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(conStrBuilder.ConnectionString));
 
+// ─── CORS ─────────────────────────────────────────────────────────
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 // ─── Servicios ────────────────────────────────────────────────────
 builder.Services.AddControllers();
@@ -41,24 +50,7 @@ builder.Services.AddScoped<GetSectorsByEventHandler>();
 builder.Services.AddScoped<CreateReservationHandler>();
 builder.Services.AddScoped<GetReservationByUserHandler>();
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll",
-        policy =>
-        {
-            policy.AllowAnyOrigin()
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
-        });
-});
-
 var app = builder.Build();
-
-app.UseCors("AllowAll");
-
-app.UseHttpsRedirection();
-app.UseAuthorization();
-app.MapControllers();
 
 // ─── Pipeline HTTP ────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
@@ -67,10 +59,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseCors("AllowAll");
+app.UseAuthorization();
+app.MapControllers();
 
+// ─── Seed de datos ────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await DbSeeder.SeedAsync(context);
 }
+
 app.Run();

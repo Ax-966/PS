@@ -22,6 +22,7 @@ public class GetSectorsByEventHandler : IQueryHandler<GetSectorsByEvent, IEnumer
         return sectors.Select(s => new SectorResponseDto
         {
             Id = s.Id,
+            EventId = s.EventId,
             Name = s.Name,
             Price = s.Price,
             Capacity = s.Capacity

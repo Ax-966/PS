@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.documentElement.dataset.theme = savedTheme;
 
   // 2. Inicializar datos de ejemplo en localStorage si está vacío
-  Events.initDefaultData();
+  //Events.initDefaultData();
 
   // 3. Verificar sesión activa
   Auth.init();
