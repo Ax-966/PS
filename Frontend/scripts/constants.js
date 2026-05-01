@@ -10,8 +10,6 @@
 /* ============================================================
    CONSTANTES DE NEGOCIO
    ============================================================ */
-const API_BASE_URL = 'https://localhost:7198/api/v1';
-
 const LOCK_DURATION_MS     = 5 * 60 * 1000;  // 5 minutos de bloqueo
 const RELEASE_CHECK_MS     = 15 * 1000;       // revisar expirados cada 15s
 const ADMIN_CREDENTIALS    = {
