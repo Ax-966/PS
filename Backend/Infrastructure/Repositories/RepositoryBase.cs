@@ -15,17 +15,31 @@ public abstract class RepositoryBase<T> : IRepositoryBase<T> where T : class
     }
 
     public async Task<IEnumerable<T>> FindAllAsync() =>
-        await AppDbContext.Set<T>().AsNoTracking().ToListAsync();
+        await AppDbContext.Set<T>()
+            .AsNoTracking()
+            .ToListAsync();
 
     public async Task<IEnumerable<T>> FindByConditionAsync(Expression<Func<T, bool>> expression) =>
-        await AppDbContext.Set<T>().Where(expression).AsNoTracking().ToListAsync();
+        await AppDbContext.Set<T>()
+            .Where(expression)
+            .AsNoTracking()
+            .ToListAsync();
 
-    public async Task CreateAsync(T entity) =>
+    public async Task CreateAsync(T entity)
+    {
         await AppDbContext.Set<T>().AddAsync(entity);
+        await AppDbContext.SaveChangesAsync();
+    }
 
-    public async Task UpdateAsync(T entity) =>
-        await Task.Run(() => AppDbContext.Set<T>().Update(entity));
+    public async Task UpdateAsync(T entity)
+    {
+        AppDbContext.Set<T>().Update(entity);
+        await AppDbContext.SaveChangesAsync();
+    }
 
-    public async Task DeleteAsync(T entity) =>
-        await Task.Run(() => AppDbContext.Set<T>().Remove(entity));
+    public async Task DeleteAsync(T entity)
+    {
+        AppDbContext.Set<T>().Remove(entity);
+        await AppDbContext.SaveChangesAsync();
+    }
 }
