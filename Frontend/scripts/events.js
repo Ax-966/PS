@@ -9,6 +9,8 @@
 
 'use strict';
 
+const API_BASE_URL = 'https://localhost:7198/api/v1';
+
 /* ============================================================
    MÓDULO EVENTS — CRUD de eventos y generación de mapas
    ============================================================ */
@@ -37,13 +39,25 @@ const Events = {
     return seats;
   },
 
-  getAll() {
-    return Store.get('events', []);
-  },
+  async getAll() {
+  const response = await fetch(`${API_BASE_URL}/Events`);
+  return await response.json();
+},
 
-  getById(id) {
-    return this.getAll().find(e => e.id === id) || null;
-  },
+async getById(id) {
+  const response = await fetch(`${API_BASE_URL}/Events/${id}`);
+  return await response.json();
+},
+
+async getSeatsByEvent(eventId) {
+  const response = await fetch(`${API_BASE_URL}/Seats/event/${eventId}`);
+  return await response.json();
+},
+
+async getSectorsByEvent(eventId) {
+  const response = await fetch(`${API_BASE_URL}/Sectors/event/${eventId}`);
+  return await response.json();
+},
 
   create(data) {
     const id      = `evt-${Date.now()}`;

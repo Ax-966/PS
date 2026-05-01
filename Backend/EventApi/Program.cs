@@ -41,7 +41,24 @@ builder.Services.AddScoped<GetSectorsByEventHandler>();
 builder.Services.AddScoped<CreateReservationHandler>();
 builder.Services.AddScoped<GetReservationByUserHandler>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        });
+});
+
 var app = builder.Build();
+
+app.UseCors("AllowAll");
+
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
 
 // ─── Pipeline HTTP ────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
@@ -50,9 +67,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-app.UseAuthorization();
-app.MapControllers();
+
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();

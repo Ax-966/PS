@@ -51,3 +51,19 @@ const Store = {
     return updated;
   },
 };
+
+const Reservations = {
+  async create(userId, seatId) {
+    const response = await fetch(`${API_BASE_URL}/Reservations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, seatId })
+    });
+    return await response.json();
+  },
+
+  async getByUser(userId) {
+    const response = await fetch(`${API_BASE_URL}/Reservations/user/${userId}`);
+    return await response.json();
+  }
+};
