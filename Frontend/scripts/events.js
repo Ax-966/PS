@@ -1,10 +1,9 @@
 /**
  * TicketVivo — events.js
- * Módulo Events: CRUD de eventos y generación automática de mapas de butacas.
- * Módulo Seats: lógica de negocio de butacas (bloqueo, concurrencia, compra, liberación).
- * Depende de: constants.js (SEAT, ACTION, LOCK_DURATION_MS), store.js (Store), audit.js (Audit)
+ * Ahora consume backend (.NET API)
+ * LocalStorage queda solo para Auth/UI.
  *
- * ORDEN DE CARGA: constants.js → store.js → audit.js → auth.js → events.js
+ * ORDEN DE CARGA: constants.js → store.js → audit.js → auth.js → api.js → events.js
  */
 
 'use strict';
@@ -12,7 +11,7 @@
 //const API_BASE_URL = 'https://localhost:7198/api/v1';
 
 /* ============================================================
-   MÓDULO EVENTS — CRUD de eventos y generación de mapas
+   EVENTS
    ============================================================ */
 const Events = {
   /**

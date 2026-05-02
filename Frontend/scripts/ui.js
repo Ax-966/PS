@@ -1,26 +1,22 @@
 /**
  * TicketVivo — ui.js
- * Módulo UI: renderizado de vistas, manejo de interacciones, panel de selección,
- * temporizador regresivo, toasts y proceso en segundo plano (Background).
- * Depende de: constants.js, store.js, audit.js, auth.js, events.js
+ * FIXES:
+ *  - renderView() es ahora async
+ *  - Todos los builders que llaman al backend usan await
+ *  - handleSeatClick() es async
+ *  - Se eliminó la declaración duplicada de const UI
+ *  - demoConcurrencia y _confirmResetSeats adaptados (sin updateSeat real)
  *
  * ORDEN DE CARGA: constants.js → store.js → audit.js → auth.js → events.js → ui.js → main.js
  */
 
 'use strict';
 
-/* ============================================================
-   MÓDULO UI — Renderizado de vistas y manejo de interacciones
-   ============================================================ */
 const UI = {
   currentView:     null,
   currentEventId:  null,
   currentSectorId: null,
-
-  /** Butacas seleccionadas en el carrito */
-  selectedSeats: [], // [{ eventId, sectorId, seatId, seatLabel, sectorName, eventName, price, lockExpiry }]
-
-  /** ID del intervalo del temporizador visible */
+  selectedSeats:   [],
   countdownInterval: null,
 
   /* ----------------------------------------------------------
@@ -36,7 +32,6 @@ const UI = {
   _setupNav() {
     const user = Auth.currentUser;
 
-    // ── Links de navegación (navbar + mobile) ──
     document.querySelectorAll('[data-view]').forEach(btn => {
       btn.addEventListener('click', () => {
         const view = btn.dataset.view;
@@ -45,28 +40,24 @@ const UI = {
       });
     });
 
-    // ── Admin links ──
     if (Auth.isAdmin()) {
       document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
     }
 
-    // ── Poblar info del dropdown de usuario ──
-    const usernameEl  = document.getElementById('nav-username');
-    const avatarEl    = document.getElementById('user-avatar-char');
-    const ddUsername  = document.getElementById('dd-username');
-    const ddEmail     = document.getElementById('dd-email');
-    const ddRole      = document.getElementById('dd-role');
+    const usernameEl = document.getElementById('nav-username');
+    const avatarEl   = document.getElementById('user-avatar-char');
+    const ddUsername = document.getElementById('dd-username');
+    const ddEmail    = document.getElementById('dd-email');
+    const ddRole     = document.getElementById('dd-role');
 
-    if (usernameEl)  usernameEl.textContent  = user?.username || '';
-    if (avatarEl)    avatarEl.textContent     = (user?.username || 'U').charAt(0).toUpperCase();
-    if (ddUsername)  ddUsername.textContent   = user?.username || '';
-    if (ddEmail)     ddEmail.textContent      = user?.email || '';
-    if (ddRole)      ddRole.textContent       = user?.role === 'admin' ? 'Administrador' : 'Cliente';
+    if (usernameEl) usernameEl.textContent = user?.username || '';
+    if (avatarEl)   avatarEl.textContent   = (user?.username || 'U').charAt(0).toUpperCase();
+    if (ddUsername) ddUsername.textContent = user?.username || '';
+    if (ddEmail)    ddEmail.textContent    = user?.email || '';
+    if (ddRole)     ddRole.textContent     = user?.role === 'admin' ? 'Administrador' : 'Cliente';
 
-    // ── Toggle dropdown de usuario ──
     const userBtn      = document.getElementById('btn-user-menu');
     const userDropdown = document.getElementById('user-dropdown');
-
     if (userBtn && userDropdown) {
       userBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -74,14 +65,12 @@ const UI = {
         userDropdown.classList.toggle('hidden', open);
         userBtn.setAttribute('aria-expanded', String(!open));
       });
-      // Cerrar al clickear fuera
       document.addEventListener('click', () => {
         userDropdown.classList.add('hidden');
         userBtn?.setAttribute('aria-expanded', 'false');
       });
     }
 
-    // ── Logout ──
     const logoutBtn = document.getElementById('btn-logout');
     if (logoutBtn) {
       logoutBtn.addEventListener('click', () => {
@@ -90,10 +79,8 @@ const UI = {
       });
     }
 
-    // ── Hamburguesa mobile ──
     const hamburger = document.getElementById('hamburger-btn');
     const mobileNav = document.getElementById('mobile-nav');
-
     if (hamburger && mobileNav) {
       hamburger.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -109,7 +96,6 @@ const UI = {
       });
     }
 
-    // Botón de tema mobile
     const themeMobileBtn = document.getElementById('btn-theme-mobile');
     if (themeMobileBtn) {
       themeMobileBtn.addEventListener('click', () => {
@@ -123,19 +109,15 @@ const UI = {
       });
     }
 
-    // ── Botón de compra en panel ──
     const purchaseBtn = document.getElementById('btn-purchase');
     if (purchaseBtn) purchaseBtn.addEventListener('click', () => this._handlePurchase());
 
-    // ── Botón cancelar selección ──
     const clearBtn = document.getElementById('btn-clear-selection');
     if (clearBtn) clearBtn.addEventListener('click', () => this.clearSelection());
 
-    // ── Botón scroll-to-top ──
     this._initScrollTop();
   },
 
-  /** Cerrar menú mobile programáticamente. */
   closeMobileNav() {
     const mobileNav = document.getElementById('mobile-nav');
     const hamburger = document.getElementById('hamburger-btn');
@@ -144,19 +126,16 @@ const UI = {
     hamburger?.setAttribute('aria-expanded', 'false');
   },
 
-  /** Cerrar dropdown de usuario. */
   closeUserMenu() {
     document.getElementById('user-dropdown')?.classList.add('hidden');
     document.getElementById('btn-user-menu')?.setAttribute('aria-expanded', 'false');
   },
 
-  /** Inicializar botón de scroll-to-top. */
   _initScrollTop() {
-    // Crear botón
     const btn = document.createElement('button');
-    btn.className  = 'scroll-top-btn no-print';
-    btn.innerHTML  = '↑';
-    btn.title      = 'Volver arriba';
+    btn.className = 'scroll-top-btn no-print';
+    btn.innerHTML = '↑';
+    btn.title     = 'Volver arriba';
     btn.setAttribute('aria-label', 'Volver al inicio de la página');
     document.body.appendChild(btn);
 
@@ -186,7 +165,7 @@ const UI = {
   },
 
   /* ----------------------------------------------------------
-     ROUTER DE VISTAS
+     ROUTER DE VISTAS — async para soportar builders con await
      ---------------------------------------------------------- */
   /**
    * Renderizar una vista en el contenedor principal.
@@ -198,12 +177,13 @@ const UI = {
     const main = document.getElementById('main-content');
     if (!main) return;
 
-    // Marcar link activo en navbar
     document.querySelectorAll('.nav-link').forEach(link => {
       link.classList.toggle('active', link.dataset.view === view);
     });
 
-    // Renderizar según la vista solicitada
+    // Mostrar spinner mientras carga
+    main.innerHTML = '<div class="loading-spinner" aria-live="polite">Cargando...</div>';
+
     let html = '';
     switch (view) {
       case 'home':
@@ -238,12 +218,11 @@ const UI = {
 
     main.innerHTML = `<div class="page-enter">${html}</div>`;
 
-    // Ejecutar scripts de inicialización específicos de la vista
     if (view === 'admin-form') this._attachFormListeners(params.eventId || null);
   },
 
   /* ----------------------------------------------------------
-     VISTA: HOME — Listado de eventos + buscador/filtros
+     VISTA: HOME
      ---------------------------------------------------------- */
   async _buildHome() {
   const events = await Events.getAll();
@@ -259,8 +238,7 @@ const UI = {
   }
 
 
-    // Obtener géneros únicos para el filtro
-    const genres = [...new Set(events.map(e => e.genre).filter(Boolean))].sort();
+    const genres = [...new Set(list.map(e => e.genre).filter(Boolean))].sort();
 
     return `
       <div class="page-header">
@@ -268,7 +246,6 @@ const UI = {
         <p class="page-subtitle">Conseguí tus entradas antes de que se agoten</p>
       </div>
 
-      <!-- Barra de búsqueda y filtros -->
       <div class="search-filter-bar" id="search-bar">
         <div class="search-wrap">
           <span class="search-icon" aria-hidden="true">🔍</span>
@@ -297,7 +274,7 @@ const UI = {
       </div>
 
       <div class="events-grid" id="events-grid">
-        ${events.map(e => this._buildEventCard(e)).join('')}
+        ${list.map(e => this._buildEventCard(e)).join('')}
       </div>
     `;
   },
@@ -312,7 +289,6 @@ const UI = {
     const clearX = document.getElementById('search-clear');
 
     if (!grid) return;
-
     if (clearX) clearX.classList.toggle('hidden', !query);
 
    const events = await Events.getAll();
@@ -345,8 +321,8 @@ let matched = events.filter(e => {
     }
 
     if (count) {
-      count.innerHTML = matched.length < events.length
-        ? `Mostrando <strong>${matched.length}</strong> de <strong>${events.length}</strong> eventos`
+      count.innerHTML = matched.length < list.length
+        ? `Mostrando <strong>${matched.length}</strong> de <strong>${list.length}</strong> eventos`
         : '';
     }
   },
@@ -367,6 +343,8 @@ let matched = events.filter(e => {
     this.filterEvents();
   },
 
+  // Las cards del backend no tienen sectors/seats embebidos aún
+  // Adaptamos para que funcione con o sin esos datos
   _buildEventCard(event) {
     // Verificar que el evento tenga sectores válidos
    if (!event.sectors || !Array.isArray(event.sectors) || event.sectors.length === 0) {
@@ -387,11 +365,11 @@ let matched = events.filter(e => {
         class="event-card"
         role="button"
         tabindex="0"
-        aria-label="Ver butacas para ${event.name}"
+        aria-label="Ver butacas para ${this._escapeHtml(event.name)}"
         onclick="UI.renderView('event-detail', { eventId: '${event.id}' })"
         onkeydown="if(event.key==='Enter')UI.renderView('event-detail',{eventId:'${event.id}'})"
       >
-        <div class="card-badge">${event.genre || 'En vivo'}</div>
+        <div class="card-badge">${this._escapeHtml(event.genre || 'En vivo')}</div>
         <div class="card-body">
           <div class="card-date" aria-label="${date.toLocaleDateString('es-AR')}">
             <span class="date-day">${date.getDate()}</span>
@@ -400,15 +378,14 @@ let matched = events.filter(e => {
           <div class="card-info">
             <h2 class="card-title">${this._escapeHtml(event.name)}</h2>
             <p class="card-venue">📍 ${this._escapeHtml(event.venue)}</p>
-            <p class="card-time">🕐 ${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs${isToday ? ' · <strong style="color:var(--accent)">Hoy</strong>' : ''}</p>
+            <p class="card-time">🕐 ${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs</p>
           </div>
         </div>
         <div class="card-footer">
           <div class="card-availability">
-            <div class="avail-bar"><div class="avail-fill" style="width:${pctOccupied}%"></div></div>
-            <span class="avail-text">${available > 0 ? `${available} butacas disponibles` : '⚠ Agotadas'}</span>
+            <span class="avail-text">${typeof available === 'number' ? `${available} butacas disponibles` : 'Ver disponibilidad'}</span>
           </div>
-          <div class="card-price">Desde <strong>$${minPrice.toLocaleString('es-AR')}</strong></div>
+          ${minPrice > 0 ? `<div class="card-price">Desde <strong>$${minPrice.toLocaleString('es-AR')}</strong></div>` : ''}
           <button class="btn-card" tabindex="-1">Ver butacas →</button>
         </div>
       </article>
@@ -416,7 +393,7 @@ let matched = events.filter(e => {
   },
 
   /* ----------------------------------------------------------
-     VISTA: DETALLE DE EVENTO + MAPA DE ASIENTOS
+     VISTA: DETALLE DE EVENTO
      ---------------------------------------------------------- */
   async _buildEventDetail(eventId) {
     const event = await Events.getById(eventId);
@@ -470,39 +447,20 @@ let matched = events.filter(e => {
             <span>📍 ${this._escapeHtml(event.venue)}</span>
           </div>
           ${event.description ? `<p class="hero-desc">${this._escapeHtml(event.description)}</p>` : ''}
-
-          <!-- Barras de ocupación por sector -->
-          <div class="sector-stats" aria-label="Disponibilidad por sector">
-            ${sectorStats.map(s => `
-              <div class="sector-stat-row">
-                <span class="ss-label">${this._escapeHtml(s.name)}</span>
-                <div class="ss-bar-wrap">
-                  <div class="ss-bar-fill ${s.fill}" style="width:${s.pct}%" role="progressbar" aria-valuenow="${s.pct}" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-                <span class="ss-numbers">${s.free} / ${s.total}</span>
-                <span class="ss-price">$${s.price.toLocaleString('es-AR')}</span>
-              </div>
-            `).join('')}
-          </div>
         </div>
 
         <div class="seat-section">
           <div class="sector-tabs" role="tablist">
-            ${event.sectors.map(s => {
-              const ss     = sectorStats.find(x => x.id === s.id);
-              const soldOut= ss && ss.free === 0;
-              return `
-                <button
-                  class="sector-tab ${s.id === this.currentSectorId ? 'active' : ''}"
-                  role="tab"
-                  aria-selected="${s.id === this.currentSectorId}"
-                  onclick="UI.switchSector('${eventId}', '${s.id}')"
-                >
-                  ${this._escapeHtml(s.name)} — $${s.price.toLocaleString('es-AR')}
-                  ${soldOut ? '<span class="new-badge" style="color:var(--seat-sold-light);border-color:var(--seat-sold);background:var(--seat-sold-bg)">Agotado</span>' : ''}
-                </button>
-              `;
-            }).join('')}
+            ${enrichedSectors.map(s => `
+              <button
+                class="sector-tab ${s.id === this.currentSectorId ? 'active' : ''}"
+                role="tab"
+                aria-selected="${s.id === this.currentSectorId}"
+                onclick="UI.switchSector('${eventId}', '${s.id}')"
+              >
+                ${this._escapeHtml(s.name)} ${s.price ? `— $${s.price.toLocaleString('es-AR')}` : ''}
+              </button>
+            `).join('')}
           </div>
 
           <div class="seat-map-container" role="tabpanel">
@@ -518,25 +476,14 @@ let matched = events.filter(e => {
             </div>
             <p class="sector-info" id="sector-info">
               Sector: <strong>${this._escapeHtml(sector?.name || '')}</strong> &middot;
-              ${sector?.seats.filter(s => s.status === SEAT.AVAILABLE).length || 0} de ${sector?.seats.length || 0} disponibles
+              ${sector?.seats?.filter(s => s.status?.toLowerCase() === SEAT.AVAILABLE).length || 0} de ${sector?.seats?.length || 0} disponibles
             </p>
-
-            <!-- Botón de demo de concurrencia -->
-            <div style="text-align:center;margin-top:20px;">
-              <button class="btn-ghost" onclick="UI.demoConcurrencia('${eventId}', '${this.currentSectorId}')"
-                title="Simula que otro usuario reserva una butaca disponible">
-                🔬 Simular reserva de otro usuario
-              </button>
-            </div>
           </div>
         </div>
       </div>
     `;
   },
 
-  /**
-   * Construir la grilla de butacas para un sector.
-   */
   _buildSeatGrid(event, sector) {
     if (!sector || !sector.seats || !sector.seats.length) {
       return '<p style="text-align:center;color:var(--text-3);padding:40px;">Este sector no tiene butacas configuradas.</p>';
@@ -545,9 +492,14 @@ let matched = events.filter(e => {
     const rows = Math.max(...sector.seats.map(s => s.row || s.seatNumber || 1));
     const cols = Math.max(...sector.seats.map(s => s.col || 1));
     const selectedIds = new Set(this.selectedSeats.map(s => s.seatId));
-    const username    = Auth.currentUser?.username || '';
 
-    let html = `<div class="seat-grid" style="grid-template-columns: repeat(${cols}, 34px)" role="list">`;
+    // Agrupar por fila
+    const rowMap = {};
+    sector.seats.forEach(seat => {
+      const row = seat.rowIdentifier || seat.row || 'A';
+      if (!rowMap[row]) rowMap[row] = [];
+      rowMap[row].push(seat);
+    });
 
     for (let r = 1; r <= rows; r++) {
       for (let c = 1; c <= cols; c++) {
@@ -557,25 +509,34 @@ let matched = events.filter(e => {
           continue;
         }
 
-        const isSelected  = selectedIds.has(seat.id);
-        const isMine      = seat.lockedBy === username;
-        let   cls         = 'seat';
-        let   disabled    = false;
-        let   ariaLabel   = `Fila ${r}, Butaca ${c}`;
+    rowKeys.forEach(rowKey => {
+      const rowSeats = rowMap[rowKey].sort((a, b) => (a.seatNumber || a.col || 0) - (b.seatNumber || b.col || 0));
+      const cols     = rowSeats.length;
 
-        if (isSelected || (seat.status === SEAT.LOCKED && isMine)) {
-          cls       += ' selected';
+      html += `<div class="seat-grid" style="grid-template-columns: auto repeat(${cols}, 34px)" role="list">`;
+      html += `<div class="seat row-label">${rowKey}</div>`;
+
+      rowSeats.forEach(seat => {
+        const isSelected = selectedIds.has(seat.id);
+        const status     = (seat.status || '').toLowerCase();
+        let cls          = 'seat';
+        let disabled     = false;
+        const col        = seat.seatNumber || seat.col || '?';
+        let ariaLabel    = `Fila ${rowKey}, Butaca ${col}`;
+
+        if (isSelected) {
+          cls      += ' selected';
           ariaLabel += ' — en tu selección';
-        } else if (seat.status === SEAT.AVAILABLE) {
-          cls       += ' available';
+        } else if (status === SEAT.AVAILABLE) {
+          cls      += ' available';
           ariaLabel += ' — disponible';
-        } else if (seat.status === SEAT.LOCKED) {
-          cls       += ' locked';
-          disabled   = true;
+        } else if (status === SEAT.LOCKED) {
+          cls      += ' locked';
+          disabled  = true;
           ariaLabel += ' — reservado temporalmente';
-        } else if (seat.status === SEAT.SOLD) {
-          cls       += ' sold';
-          disabled   = true;
+        } else if (status === SEAT.SOLD) {
+          cls      += ' sold';
+          disabled  = true;
           ariaLabel += ' — vendido';
         }
 
@@ -586,27 +547,24 @@ let matched = events.filter(e => {
             role="listitem"
             aria-label="${ariaLabel}"
             title="${ariaLabel}"
-            onclick="${disabled ? '' : `UI.handleSeatClick('${event.id}','${sector.id}','${seat.id}',${r},${c},${sector.price})`}"
-            onmouseenter="UI.showSeatTooltip(event, ${JSON.stringify({ row: r, col: c, status: isSelected || (seat.status === SEAT.LOCKED && isMine) ? 'selected' : seat.status, price: sector.price, sectorName: sector.name })})"
-            onmouseleave="UI.hideSeatTooltip()"
-            onmousemove="UI.moveSeatTooltip(event)"
-          ><span class="seat-label" aria-hidden="true">${c}</span></button>
+            onclick="${disabled ? '' : `UI.handleSeatClick('${event.id}','${sector.id}','${seat.id}','${rowKey}',${col},${sector.price || 0})`}"
+          ><span class="seat-label" aria-hidden="true">${col}</span></button>
         `;
-      }
-    }
+      });
 
-    html += '</div>';
+      html += '</div>';
+    });
+
     return html;
   },
 
-  /** Cambiar de sector activo sin recargar toda la vista. */
   switchSector(eventId, sectorId) {
     this.currentSectorId = Number(sectorId);
     this.renderView('event-detail', { eventId });
 },
 
   /* ----------------------------------------------------------
-     TOOLTIP DE BUTACA
+     CLICK EN BUTACA — async porque Seats.lock es async
      ---------------------------------------------------------- */
   showSeatTooltip(e, data) {
     const tooltip = document.getElementById('seat-tooltip');
@@ -655,13 +613,13 @@ let matched = events.filter(e => {
     const username = Auth.currentUser?.username;
     if (!username) return;
 
-    // ¿Ya está en el carrito del usuario? → deseleccionar
+    // ¿Ya está en el carrito? → deseleccionar
     const existingIdx = this.selectedSeats.findIndex(s => s.seatId === seatId);
     if (existingIdx >= 0) {
       const sel = this.selectedSeats[existingIdx];
       Seats.unlock(sel.eventId, sel.sectorId, seatId, username);
       this.selectedSeats.splice(existingIdx, 1);
-      this._refreshSeatMap();
+      await this._refreshSeatMap();
       this._updateSelectionPanel();
       return;
     }
@@ -685,25 +643,25 @@ if (result) {
 }
 
     if (result.success) {
-      const event  = Events.getById(eventId);
-      const sector = event?.sectors.find(s => s.id === sectorId);
+      const event  = await Events.getById(eventId);
+      const sectors = await Events.getSectors(eventId);
+      const sector  = sectors.find(s => s.id === sectorId);
       this.selectedSeats.push({
         eventId,
         sectorId,
         seatId,
-        seatLabel:   `Fila ${row} · Butaca ${col}`,
-        sectorName:  sector?.name   || '',
-        eventName:   event?.name    || '',
-        price:       price,
-        lockExpiry:  result.lockExpiry,
+        seatLabel:  `Fila ${row} · Butaca ${col}`,
+        sectorName: sector?.name  || '',
+        eventName:  event?.name   || '',
+        price:      price,
+        lockExpiry: new Date(result.lockExpiry).getTime(),
       });
       this.showToast(`Butaca seleccionada: Fila ${row}, Butaca ${col}`, 'success');
     } else {
-      // Feedback de error de concurrencia u otro problema
       this.showToast(result.error, 'error');
     }
 
-    this._refreshSeatMap();
+    await this._refreshSeatMap();
     this._updateSelectionPanel();
   },
 
@@ -747,28 +705,36 @@ if (result) {
   async _refreshSeatMap() {
     if (this.currentView !== 'event-detail' || !this.currentEventId) return;
 
-    const event  = Events.getById(this.currentEventId);
-    const sector = event?.sectors.find(s => s.id === this.currentSectorId);
-    if (!event || !sector || !sector.seats) return;
+    const event   = await Events.getById(this.currentEventId);
+    const sectors = await Events.getSectors(this.currentEventId);
+    const seats   = await Events.getSeats(this.currentEventId);
+
+    if (!event || !sectors.length) return;
+
+    const sector = sectors.find(s => s.id === this.currentSectorId);
+    if (!sector) return;
+
+    sector.seats = seats.filter(s => s.sectorId === sector.id);
+    event.sectors = sectors.map(s => ({ ...s, seats: seats.filter(se => se.sectorId === s.id) }));
 
     const mapEl = document.getElementById('seat-map');
     if (mapEl) mapEl.innerHTML = this._buildSeatGrid(event, sector);
 
     const infoEl = document.getElementById('sector-info');
     if (infoEl) {
-      const avail = (sector.seats?.filter(s => s.status === SEAT.AVAILABLE).length || 0);
+      const avail = sector.seats?.filter(s => s.status?.toLowerCase() === SEAT.AVAILABLE).length || 0;
       infoEl.innerHTML = `Sector: <strong>${this._escapeHtml(sector.name)}</strong> &middot; ${avail} de ${sector.seats.length} disponibles`;
     }
   },
 
   /* ----------------------------------------------------------
-     PANEL DE SELECCIÓN (carrito flotante)
+     PANEL DE SELECCIÓN
      ---------------------------------------------------------- */
   _updateSelectionPanel() {
-    const panel     = document.getElementById('selection-panel');
-    const listEl    = document.getElementById('selection-list');
-    const totalEl   = document.getElementById('selection-total-amount');
-    const countEl   = document.getElementById('selection-count');
+    const panel   = document.getElementById('selection-panel');
+    const listEl  = document.getElementById('selection-list');
+    const totalEl = document.getElementById('selection-total-amount');
+    const countEl = document.getElementById('selection-count');
     if (!panel) return;
 
     if (this.selectedSeats.length === 0) {
@@ -779,7 +745,6 @@ if (result) {
 
     panel.classList.remove('hidden');
 
-    // Renderizar lista de butacas
     if (listEl) {
       listEl.innerHTML = this.selectedSeats.map(s => `
         <div class="selection-item" role="listitem">
@@ -797,7 +762,6 @@ if (result) {
       `).join('');
     }
 
-    // Total
     const total = this.selectedSeats.reduce((sum, s) => sum + s.price, 0);
     if (totalEl) totalEl.textContent = `$${total.toLocaleString('es-AR')}`;
     if (countEl) countEl.textContent = `${this.selectedSeats.length} butaca${this.selectedSeats.length !== 1 ? 's' : ''}`;
@@ -812,22 +776,20 @@ if (result) {
     const sel = this.selectedSeats[idx];
     Seats.unlock(sel.eventId, sel.sectorId, seatId, Auth.currentUser?.username || '');
     this.selectedSeats.splice(idx, 1);
-    this._refreshSeatMap();
+    await this._refreshSeatMap();
     this._updateSelectionPanel();
   },
 
-  /** Cancelar toda la selección. */
-  clearSelection() {
+  async clearSelection() {
     this.selectedSeats.forEach(sel => {
       Seats.unlock(sel.eventId, sel.sectorId, sel.seatId, Auth.currentUser?.username || '');
     });
     this.selectedSeats = [];
-    this._refreshSeatMap();
+    await this._refreshSeatMap();
     this._updateSelectionPanel();
     this.showToast('Selección cancelada.', 'info');
   },
 
-  /** Iniciar temporizador regresivo del carrito. */
   _startCountdown() {
     this._stopCountdown();
     this.countdownInterval = setInterval(() => {
@@ -845,7 +807,6 @@ if (result) {
         el.setAttribute('aria-label', `Tiempo restante: ${min} minutos ${sec} segundos`);
       }
 
-      // Limpiar butacas expiradas del carrito
       if (remaining === 0) {
         const now     = Date.now();
         const expired = this.selectedSeats.filter(s => s.lockExpiry <= now);
@@ -878,19 +839,18 @@ if (result) {
     const result = Seats.purchase(this.selectedSeats, Auth.currentUser?.username || '');
 
     if (result.success) {
-      const count       = this.selectedSeats.length;
+      const count        = this.selectedSeats.length;
       this.selectedSeats = [];
       this._stopCountdown();
       this._updateSelectionPanel();
-      this._refreshSeatMap();
+      await this._refreshSeatMap();
       this._showPurchaseModal(count);
     } else {
       this.showToast(result.error, 'error');
-      // Limpiar butacas inválidas
       const now = Date.now();
       this.selectedSeats = this.selectedSeats.filter(s => s.lockExpiry > now);
       this._updateSelectionPanel();
-      this._refreshSeatMap();
+      await this._refreshSeatMap();
     }
   },
 
@@ -911,7 +871,6 @@ if (result) {
         </div>
       </div>
     `;
-    // Auto-cerrar a los 10 segundos
     setTimeout(() => { if (root) root.innerHTML = ''; }, 10000);
   },
 
@@ -933,7 +892,7 @@ if (result) {
     });
   });
 
-    if (!tickets.length) {
+    if (!reservations.length) {
       return `
         <div class="page-header">
           <h1 class="page-title">Mis <span class="accent">Entradas</span></h1>
@@ -946,26 +905,15 @@ if (result) {
       `;
     }
 
-    // Agrupar por evento
-    const grouped = tickets.reduce((acc, t) => {
-      const key = t.event.id;
-      if (!acc[key]) acc[key] = { event: t.event, items: [] };
-      acc[key].items.push(t);
-      return acc;
-    }, {});
-
-    const total = tickets.reduce((s, t) => s + t.sector.price, 0);
+    const total = reservations.length;
 
     return `
       <div class="page-header">
         <h1 class="page-title">Mis <span class="accent">Entradas</span></h1>
-        <p class="page-subtitle">${tickets.length} entrada${tickets.length !== 1 ? 's' : ''} · Total gastado: <strong style="color:var(--accent)">$${total.toLocaleString('es-AR')}</strong></p>
-        <div class="header-actions">
-          <button class="btn-secondary" onclick="UI.showPrintView()">🖨️ Imprimir entradas</button>
-        </div>
+        <p class="page-subtitle">${total} reserva${total !== 1 ? 's' : ''}</p>
       </div>
       <div class="tickets-list">
-        ${Object.values(grouped).map(g => this._buildTicketGroup(g)).join('')}
+        ${reservations.map(r => this._buildReservationCard(r)).join('')}
       </div>
     `;
   },
@@ -992,28 +940,19 @@ if (result) {
       <div class="ticket-card" role="article" aria-label="Entrada para ${event.name}">
         <div class="ticket-perforation" aria-hidden="true"></div>
         <div class="ticket-main">
-          <div class="ticket-title">${this._escapeHtml(event.name)}</div>
+          <div class="ticket-title">Reserva #${reservation.id?.slice(-8) || '?'}</div>
           <div class="ticket-detail">
-            <span>Sector: <strong>${this._escapeHtml(sector.name)}</strong></span>
-            <span>Fila: <strong>${seat.row}</strong></span>
-            <span>Butaca: <strong>${seat.col}</strong></span>
+            <span>Butaca ID: <strong>${reservation.seatId || '—'}</strong></span>
+            <span>Estado: <strong>${reservation.status || '—'}</strong></span>
           </div>
-          <div class="ticket-venue">📍 ${this._escapeHtml(event.venue)}</div>
-        </div>
-        <div class="ticket-stub" aria-label="Fecha y precio">
-          <div class="stub-date">
-            <span class="stub-day">${date.getDate()}</span>
-            <span class="stub-month">${date.toLocaleDateString('es-AR', { month: 'short' }).toUpperCase()}</span>
-          </div>
-          <div class="stub-time">${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}hs</div>
-          <div class="stub-price">$${sector.price.toLocaleString('es-AR')}</div>
+          <div class="ticket-venue">Expira: ${expiry}</div>
         </div>
       </div>
     `;
   },
 
   /* ----------------------------------------------------------
-     VISTA DE IMPRESIÓN
+     VISTA: ADMIN
      ---------------------------------------------------------- */
   async showPrintView() {
   const username = Auth.currentUser?.username || '';
@@ -1113,51 +1052,19 @@ if (result) {
         <h1 class="page-title">Panel de <span class="accent">Administración</span></h1>
         <div class="header-actions">
           <button class="btn-primary" onclick="UI.renderView('admin-form', {})">+ Nuevo evento</button>
-          <button class="btn-secondary" onclick="UI.renderView('admin-audit')">Ver auditoría</button>
+          <button class="btn-secondary" onclick="UI.renderView('admin-audit')">📋 Ver auditoría</button>
         </div>
       </div>
 
-      <!-- Dashboard de estadísticas -->
-      <div class="dashboard-stats" aria-label="Estadísticas generales">
-        <div class="dash-card accent-gold">
-          <span class="dash-icon">📅</span>
-          <span class="dash-value">${events.length}</span>
-          <span class="dash-label">Eventos activos</span>
-        </div>
-        <div class="dash-card accent-green">
-          <span class="dash-icon">🎟️</span>
-          <span class="dash-value">${soldSeats.toLocaleString('es-AR')}</span>
-          <span class="dash-label">Entradas vendidas</span>
-          <span class="dash-sub">${occupancyPct}% de ocupación</span>
-        </div>
-        <div class="dash-card accent-yellow">
-          <span class="dash-icon">⏳</span>
-          <span class="dash-value">${lockedSeats}</span>
-          <span class="dash-label">Reservadas ahora</span>
-          <span class="dash-sub">Expiran en 5 min</span>
-        </div>
-        <div class="dash-card accent-red">
-          <span class="dash-icon">💺</span>
-          <span class="dash-value">${availableSeats.toLocaleString('es-AR')}</span>
-          <span class="dash-label">Disponibles</span>
-          <span class="dash-sub">de ${totalSeats.toLocaleString('es-AR')} totales</span>
-        </div>
-        <div class="dash-card accent-blue">
-          <span class="dash-icon">💰</span>
-          <span class="dash-value" style="font-size:1.5rem">$${totalRevenue.toLocaleString('es-AR')}</span>
-          <span class="dash-label">Recaudación total</span>
-          <span class="dash-sub">${logs.filter(l => l.action === ACTION.PURCHASE).length} transacciones</span>
-        </div>
+      <div class="admin-stats-bar">
+        <div class="stat-card"><span class="sc-num">${list.length}</span><span class="sc-label">Eventos</span></div>
+        <div class="stat-card"><span class="sc-num">${logs.length}</span><span class="sc-label">Acciones auditadas</span></div>
       </div>
 
-      <div class="admin-section-tabs">
-        <button class="admin-tab-btn active">Eventos (${events.length})</button>
-      </div>
-
-      <div class="admin-events">
-        ${!events.length
-          ? '<div class="empty-state"><div class="empty-icon">📅</div><p>No hay eventos creados.</p></div>'
-          : events.map(e => this._buildAdminEventRow(e)).join('')
+      <div class="admin-events-list">
+        ${list.length === 0
+          ? '<div class="empty-state"><p>No hay eventos creados aún.</p></div>'
+          : list.map(event => this._buildAdminEventRow(event)).join('')
         }
       </div>
     `;
@@ -1188,17 +1095,12 @@ if (result) {
             &nbsp;·&nbsp; ${this._escapeHtml(event.venue)}
           </p>
           <div class="admin-stats">
-            <span class="stat available">✓ ${available} disponibles</span>
-            <span class="stat locked">⏳ ${lockedSeats} bloqueadas</span>
-            <span class="stat sold">✗ ${soldSeats} vendidas</span>
-            ${revenue > 0 ? `<span class="stat" style="background:var(--accent-dim);color:var(--accent)">💰 $${revenue.toLocaleString('es-AR')}</span>` : ''}
+            <span class="stat" style="background:var(--seat-avail-bg);color:var(--seat-avail)">Estado: ${event.status || '—'}</span>
           </div>
         </div>
         <div class="admin-actions">
           <button class="btn-sm" onclick="UI.renderView('event-detail', { eventId: '${event.id}' })">Ver mapa</button>
           <button class="btn-sm" onclick="UI.renderView('admin-form', { eventId: '${event.id}' })">Editar</button>
-          <button class="btn-sm" onclick="UI._confirmResetSeats('${event.id}')" title="Liberar todas las butacas bloqueadas">Reset</button>
-          <button class="btn-sm danger" onclick="UI._confirmDeleteEvent('${event.id}')">Eliminar</button>
         </div>
       </div>
     `;
@@ -1234,12 +1136,16 @@ if (result) {
   },
 
   /* ----------------------------------------------------------
-     VISTA: FORMULARIO DE EVENTO (Admin)
+     FORMULARIO DE EVENTO (Admin)
      ---------------------------------------------------------- */
-  _buildEventForm(eventId) {
-    const event   = eventId ? Events.getById(eventId) : null;
-    const isEdit  = !!event;
-    const sectors = event?.sectors || [{ id: '', name: 'Campo', rows: 5, cols: 10, price: 5000 }];
+  async _buildEventForm(eventId) {
+    const event  = eventId ? await Events.getById(eventId) : null;
+    const isEdit = !!event;
+
+    // Fecha en formato datetime-local
+    const dateVal = event
+      ? new Date(event.eventDate || event.date).toISOString().slice(0, 16)
+      : '';
 
     return `
       <div class="page-header">
@@ -1255,16 +1161,12 @@ if (result) {
               <label for="f-name">Nombre del evento *</label>
               <input type="text" id="f-name" value="${this._escapeHtml(event?.name || '')}" placeholder="Ej: Los Redondos" />
             </div>
-            <div class="form-group">
-              <label for="f-genre">Género / estilo</label>
-              <input type="text" id="f-genre" value="${this._escapeHtml(event?.genre || '')}" placeholder="Ej: Rock, Cumbia..." />
-            </div>
           </div>
 
           <div class="form-row" style="margin-top:16px">
             <div class="form-group">
               <label for="f-date">Fecha y hora *</label>
-              <input type="datetime-local" id="f-date" value="${event?.date || ''}" />
+              <input type="datetime-local" id="f-date" value="${dateVal}" />
             </div>
             <div class="form-group">
               <label for="f-venue">Lugar *</label>
@@ -1272,26 +1174,18 @@ if (result) {
             </div>
           </div>
 
-          <div class="form-group" style="margin-top:16px">
-            <label for="f-desc">Descripción</label>
-            <textarea id="f-desc" placeholder="Contá de qué se trata el evento...">${this._escapeHtml(event?.description || '')}</textarea>
+          <div class="form-row" style="margin-top:16px">
+            <div class="form-group">
+              <label for="f-status">Estado</label>
+              <select id="f-status">
+                <option value="Active" ${event?.status === 'Active' ? 'selected' : ''}>Activo</option>
+                <option value="Inactive" ${event?.status === 'Inactive' ? 'selected' : ''}>Inactivo</option>
+                <option value="Cancelled" ${event?.status === 'Cancelled' ? 'selected' : ''}>Cancelado</option>
+              </select>
+            </div>
           </div>
 
-          <!-- Sectores dinámicos -->
-          <div class="sectors-section">
-            <div class="sectors-header">
-              <h3>Sectores y butacas</h3>
-              <button class="btn-sm" type="button" onclick="UI._addSectorRow()">+ Agregar sector</button>
-            </div>
-            <div id="sectors-list">
-              ${sectors.map((s, i) => this._buildSectorRow(s, i)).join('')}
-            </div>
-            <p style="font-size:0.75rem;color:var(--text-3);margin-top:8px">
-              💡 Las butacas se generan automáticamente al guardar. Máx. 20×20 por sector.
-            </p>
-          </div>
-
-          <div class="form-actions">
+          <div class="form-actions" style="margin-top:24px">
             <button class="btn-secondary" type="button" onclick="UI.renderView('admin')">Cancelar</button>
             <button class="btn-primary" type="button" id="btn-save-event">
               ${isEdit ? 'Guardar cambios' : 'Crear evento'}
@@ -1301,39 +1195,6 @@ if (result) {
         </div>
       </div>
     `;
-  },
-
-  _buildSectorRow(sector, idx) {
-    return `
-      <div class="sector-row" data-idx="${idx}" data-sector-id="${sector.id || ''}">
-        <div class="sector-field">
-          <label>Nombre del sector</label>
-          <input type="text" class="s-name" value="${this._escapeHtml(sector.name || '')}" placeholder="Campo, Platea, VIP..." />
-        </div>
-        <div class="sector-field narrow">
-          <label>Filas</label>
-          <input type="number" class="s-rows" value="${parseInt(sector.rows) || 5}" min="1" max="20" />
-        </div>
-        <div class="sector-field narrow">
-          <label>Cols</label>
-          <input type="number" class="s-cols" value="${parseInt(sector.cols) || 10}" min="1" max="20" />
-        </div>
-        <div class="sector-field">
-          <label>Precio $</label>
-          <input type="number" class="s-price" value="${parseInt(sector.price) || 5000}" min="0" step="100" />
-        </div>
-        <button type="button" class="btn-icon-danger" onclick="this.closest('.sector-row').remove()" title="Quitar sector">✕</button>
-      </div>
-    `;
-  },
-
-  _addSectorRow() {
-    const container = document.getElementById('sectors-list');
-    if (!container) return;
-    const idx = container.children.length;
-    const div = document.createElement('div');
-    div.innerHTML = this._buildSectorRow({ id: '', name: '', rows: 5, cols: 10, price: 5000 }, idx);
-    container.appendChild(div.firstElementChild);
   },
 
   _attachFormListeners(eventId) {
@@ -1418,7 +1279,7 @@ if (result) {
 
 
   /* ----------------------------------------------------------
-     VISTA: AUDITORÍA (Admin)
+     VISTA: AUDITORÍA
      ---------------------------------------------------------- */
   _buildAuditLogs() {
     const allLogs = Audit.getLogs().slice().reverse();
@@ -1431,7 +1292,6 @@ if (result) {
       [ACTION.UNLOCK]:          'info',
     };
 
-    // Usuarios únicos para filtro
     const users = [...new Set(allLogs.map(l => l.user))].sort();
 
     return `
@@ -1441,7 +1301,6 @@ if (result) {
         <p class="page-subtitle">${allLogs.length} entradas registradas · Solo lectura · Inmutable</p>
       </div>
 
-      <!-- Filtros de auditoría -->
       <div class="audit-filters">
         <input
           type="search"
@@ -1502,13 +1361,12 @@ if (result) {
     `).join('');
   },
 
-  /** Filtrar filas de auditoría en tiempo real. */
   filterAuditLogs() {
-    const query       = (document.getElementById('audit-search')?.value || '').toLowerCase();
-    const actionFlt   = document.getElementById('audit-action-filter')?.value || '';
-    const userFlt     = document.getElementById('audit-user-filter')?.value    || '';
-    const tbody       = document.getElementById('audit-tbody');
-    const countEl     = document.getElementById('audit-count');
+    const query     = (document.getElementById('audit-search')?.value || '').toLowerCase();
+    const actionFlt = document.getElementById('audit-action-filter')?.value || '';
+    const userFlt   = document.getElementById('audit-user-filter')?.value   || '';
+    const tbody     = document.getElementById('audit-tbody');
+    const countEl   = document.getElementById('audit-count');
 
     if (!tbody) return;
 
@@ -1527,19 +1385,13 @@ if (result) {
   },
 
   /* ----------------------------------------------------------
-     TOASTS (notificaciones)
+     TOASTS
      ---------------------------------------------------------- */
-  /**
-   * Mostrar una notificación tipo toast.
-   * @param {string} message  - Mensaje a mostrar
-   * @param {string} type     - 'success' | 'error' | 'warning' | 'info'
-   * @param {number} duration - Duración en ms (default 3500)
-   */
   showToast(message, type = 'info', duration = 3500) {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
-    const toast    = document.createElement('div');
+    const toast     = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.setAttribute('role', 'alert');
     toast.innerHTML = `
@@ -1548,7 +1400,6 @@ if (result) {
     `;
     container.appendChild(toast);
 
-    // Auto-eliminar con animación
     setTimeout(() => {
       toast.classList.add('fade-out');
       setTimeout(() => toast.remove(), 350);
@@ -1558,7 +1409,6 @@ if (result) {
   /* ----------------------------------------------------------
      UTILIDADES
      ---------------------------------------------------------- */
-  /** Escapar HTML para evitar XSS. */
   _escapeHtml(str) {
     if (typeof str !== 'string') return String(str ?? '');
     return str
@@ -1572,23 +1422,16 @@ if (result) {
 
 
 /* ============================================================
-   PROCESO EN SEGUNDO PLANO — Liberación automática de butacas
-   Simula un worker/cron job que revisa reservas expiradas.
-   Se mantiene en ui.js porque interactúa directamente con UI
-   para refrescar el mapa y el carrito del usuario activo.
+   BACKGROUND — Liberación automática
    ============================================================ */
 const Background = {
   start() {
-    // Revisar cada 15 segundos si hay butacas expiradas
     setInterval(() => {
       const released = Seats.releaseExpired();
-
       if (released > 0) {
         console.log(`[Background] ${released} butaca(s) liberada(s) por timeout.`);
-        // Actualizar mapa si el usuario lo está viendo
         UI._refreshSeatMap();
 
-        // Limpiar butacas expiradas del carrito del usuario actual
         const now     = Date.now();
         const expired = UI.selectedSeats.filter(s => s.lockExpiry <= now);
         if (expired.length) {
