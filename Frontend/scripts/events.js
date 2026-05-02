@@ -43,10 +43,61 @@ const Events = {
   },
 
   async getById(id) {
-    const response = await fetch(`${API_BASE_URL}/Events/${id}`);
-    if (!response.ok) throw new Error("Error al obtener evento");
-    return await response.json();
-  },
+  const [event, sectors, seats] = await Promise.all([
+    fetch(`${API_BASE_URL}/Events/${id}`).then(r => {
+      if (!r.ok) throw new Error("Error al obtener evento");
+      return r.json();
+    }),
+    fetch(`${API_BASE_URL}/Sectors/event/${id}`).then(r => {
+      if (!r.ok) throw new Error("Error al obtener sectores");
+      return r.json();
+    }),
+    fetch(`${API_BASE_URL}/Seats/event/${id}`).then(r => {
+      if (!r.ok) throw new Error("Error al obtener butacas");
+      return r.json();
+    })
+  ]);
+
+  const sectorsWithSeats = sectors.map(sector => {
+    const sectorSeats = seats
+      .filter(seat => Number(seat.sectorId) === Number(sector.id))
+      .map((seat, index) => ({
+        id: seat.id,
+        row: seat.rowIdentifier ? seat.rowIdentifier.charCodeAt(0) - 64 : Math.floor(index / 10) + 1,
+        col: seat.seatNumber,
+        rowIdentifier: seat.rowIdentifier,
+        seatNumber: seat.seatNumber,
+        status: String(seat.status || '').toLowerCase() === 'available'
+          ? SEAT.AVAILABLE
+          : String(seat.status || '').toLowerCase() === 'sold'
+            ? SEAT.SOLD
+            : SEAT.LOCKED,
+        lockedBy: null,
+        lockExpiry: null,
+        soldTo: null
+      }));
+
+    return {
+      id: sector.id,
+      name: sector.name,
+      price: sector.price,
+      capacity: sector.capacity,
+      seats: sectorSeats
+    };
+  });
+
+  return {
+    id: event.id,
+    name: event.name,
+    date: event.eventDate,
+    venue: event.venue,
+    status: event.status,
+    genre: event.genre || '',
+    description: event.description || '',
+    sectors: sectorsWithSeats
+  };
+},
+
 
   async getSeatsByEvent(eventId) {
     const response = await fetch(`${API_BASE_URL}/Seats/event/${eventId}`);

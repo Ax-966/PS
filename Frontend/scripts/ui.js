@@ -667,7 +667,22 @@ let matched = events.filter(e => {
     }
 
     // Intentar bloquear en el "backend" (localStorage)
-    const result = Reservations.create(eventId, sectorId, seatId, username);
+    const result = await Reservations.create(1, seatId);
+if (result) {
+    const event = await Events.getById(eventId);
+    const sector = event?.sectors?.find(s => String(s.id) === String(sectorId));
+    this.selectedSeats.push({
+        eventId,
+        sectorId,
+        seatId,
+        seatLabel: `Fila ${row} · Butaca ${col}`,
+        sectorName: sector?.name || '',
+        eventName: event?.name || '',
+        price: price,
+        lockExpiry: Date.now() + LOCK_DURATION_MS,
+    });
+    this.showToast(`Butaca seleccionada: Fila ${row}, Butaca ${col}`, 'success');
+}
 
     if (result.success) {
       const event  = Events.getById(eventId);
@@ -1329,52 +1344,78 @@ let matched = events.filter(e => {
   },
 
   async _saveEvent(eventId) {
-    const name  = document.getElementById('f-name')?.value.trim() || '';
-    const date  = document.getElementById('f-date')?.value || '';
-    const venue = document.getElementById('f-venue')?.value.trim() || '';
-    const genre = document.getElementById('f-genre')?.value.trim() || '';
-    const desc  = document.getElementById('f-desc')?.value.trim() || '';
+  const name  = document.getElementById('f-name')?.value.trim() || '';
+  const date  = document.getElementById('f-date')?.value || '';
+  const venue = document.getElementById('f-venue')?.value.trim() || '';
+  const genre = document.getElementById('f-genre')?.value.trim() || '';
+  const desc  = document.getElementById('f-desc')?.value.trim() || '';
 
-    if (!name || !date || !venue) {
-      this.showToast('Completá los campos obligatorios: nombre, fecha y lugar.', 'error');
+  if (!name || !date || !venue) {
+    this.showToast('Completá los campos obligatorios: nombre, fecha y lugar.', 'error');
+    return;
+  }
+
+  const sectorRows = document.querySelectorAll('#sectors-list .sector-row');
+  if (!sectorRows.length) {
+    this.showToast('Agregá al menos un sector al evento.', 'error');
+    return;
+  }
+
+  const sectors = [];
+  let valid = true;
+
+  sectorRows.forEach(row => {
+    const sName  = row.querySelector('.s-name')?.value.trim() || '';
+    const sRows  = Math.min(20, Math.max(1, parseInt(row.querySelector('.s-rows')?.value) || 5));
+    const sCols  = Math.min(20, Math.max(1, parseInt(row.querySelector('.s-cols')?.value) || 10));
+    const sPrice = Math.max(0, parseInt(row.querySelector('.s-price')?.value) || 0);
+    const sId    = row.dataset.sectorId || '';
+
+    if (!sName) {
+      valid = false;
       return;
     }
 
-    const sectorRows = document.querySelectorAll('#sectors-list .sector-row');
-    if (!sectorRows.length) {
-      this.showToast('Agregá al menos un sector al evento.', 'error');
-      return;
-    }
-
-    const sectors = [];
-    let valid = true;
-    sectorRows.forEach(row => {
-      const sName  = row.querySelector('.s-name')?.value.trim() || '';
-      const sRows  = Math.min(20, Math.max(1, parseInt(row.querySelector('.s-rows')?.value) || 5));
-      const sCols  = Math.min(20, Math.max(1, parseInt(row.querySelector('.s-cols')?.value) || 10));
-      const sPrice = Math.max(0, parseInt(row.querySelector('.s-price')?.value) || 0);
-      const sId    = row.dataset.sectorId || '';
-      if (!sName) { valid = false; return; }
-      sectors.push({ id: sId, name: sName, rows: sRows, cols: sCols, price: sPrice });
+    sectors.push({
+      id: sId,
+      name: sName,
+      rows: sRows,
+      cols: sCols,
+      price: sPrice
     });
+  });
 
-    if (!valid) {
-      this.showToast('Cada sector debe tener un nombre.', 'error');
-      return;
-    }
+  if (!valid) {
+    this.showToast('Cada sector debe tener un nombre.', 'error');
+    return;
+  }
 
-    const data = { name, date, venue, genre, description: desc, sectors };
+  const data = {
+    name,
+    eventDate: date,
+    venue,
+    status: 'Published',
+    genre,
+    description: desc,
+    sectors
+  };
 
+  try {
     if (eventId) {
-      Events.update(eventId, data);
+      await Events.update(eventId, data);
       this.showToast('Evento actualizado correctamente.', 'success');
     } else {
-      const created = Events.create(data);
+      console.log('DATA QUE SE ENVIA AL BACKEND:', data);
+      const created = await Events.create(data);
       this.showToast(`Evento "${created.name}" creado con ${sectors.reduce((s, sec) => s + sec.rows * sec.cols, 0)} butacas.`, 'success');
     }
 
-    this.renderView('admin');
-  },
+    await this.renderView('admin');
+  } catch (error) {
+    this.showToast(error.message || 'Error al guardar el evento.', 'error');
+  }
+},
+
 
   /* ----------------------------------------------------------
      VISTA: AUDITORÍA (Admin)
