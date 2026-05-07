@@ -8,7 +8,7 @@
 
 'use strict';
 
-//const API_BASE_URL = 'https://localhost:7198/api/v1';
+const API_BASE_URL = 'https://localhost:7198/api/v1';
 
 /* ============================================================
    EVENTS

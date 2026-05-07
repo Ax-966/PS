@@ -1,4 +1,3 @@
-using System;
 using Application.Interfaces;
 using Domain.Entities;
 using Infrastructure.Persistence;
@@ -11,9 +10,8 @@ public class UserRepository : RepositoryBase<User>, IUserRepository
 
     public async Task<User?> GetUserByIdAsync(int id)
     {
-        var Users = await FindByConditionAsync(e => e.Id == id);
- 
-        return Users.FirstOrDefault();
+        var users = await FindByConditionAsync(e => e.Id == id); 
+        return users.FirstOrDefault();
     }
 
     public async Task<User?> GetUserByEmailAsync(string email)
@@ -21,7 +19,4 @@ public class UserRepository : RepositoryBase<User>, IUserRepository
         var users = await FindByConditionAsync(e => e.Email == email);
         return users.FirstOrDefault();
     }
-  
 }
-
-

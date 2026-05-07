@@ -1,10 +1,12 @@
 using System.Reflection.Emit;
 using Domain.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence;
 
-public class AppDbContext : DbContext
+public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) 
         : base(options)
@@ -14,8 +16,6 @@ public class AppDbContext : DbContext
     public DbSet<Reservation> Reservations { get; set; }
     public DbSet<Seat> Seats { get; set; }
     public DbSet<Sector> Sectors { get; set; }
-    public DbSet<User> Users { get; set; }
-    public DbSet<Role> Roles { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -60,10 +60,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Event>()
             .HasKey(e => e.Id);
 
-        // User pertenece a un Role
-        modelBuilder.Entity<User>()
-            .HasOne(u => u.Role)
-            .WithMany()
-            .HasForeignKey(u => u.RoleId);
+   
     }
 }

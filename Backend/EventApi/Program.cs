@@ -7,10 +7,16 @@ using Application.UseCases.Sectors.Handlers;
 using Application.UseCases.Seats.Handlers;
 using Application.UseCases.Reservations.Handlers;
 using Infrastructure.Repositories;
+using Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Tokens;
+using Domain.Entities;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ─── Configuración de la BD ───────────────────────────────────────
+// ─── BD ───────────────────────────────────────────────────────────
 var conStrBuilder = new SqlConnectionStringBuilder(
     builder.Configuration.GetConnectionString("DefaultConnection")
 );
@@ -19,6 +25,38 @@ conStrBuilder.Password = builder.Configuration["DbPassword"] ?? "";
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(conStrBuilder.ConnectionString)
 );
+
+// ─── Identity ─────────────────────────────────────────────────────
+builder.Services
+    .AddIdentity<User, IdentityRole<int>>(o =>
+    {
+        o.Password.RequiredLength  = 8;
+        o.User.RequireUniqueEmail  = true;
+    })
+    .AddEntityFrameworkStores<AppDbContext>()
+    .AddDefaultTokenProviders();
+
+// ─── JWT ──────────────────────────────────────────────────────────
+builder.Services
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme    = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer           = true,
+            ValidateAudience         = true,
+            ValidateLifetime         = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer              = builder.Configuration["Jwt:Issuer"],
+            ValidAudience            = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey         = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+        };
+    });
 
 // ─── CORS ─────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
@@ -37,6 +75,7 @@ builder.Services.AddCors(options =>
 });
 
 // ─── Servicios ────────────────────────────────────────────────────
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -68,6 +107,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
+app.UseAuthentication(); // ← estaba faltando este
 app.UseAuthorization();
 app.MapControllers();
 
