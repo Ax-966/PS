@@ -43,7 +43,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
         // Reservation pertenece a un User y un Seat
         modelBuilder.Entity<Reservation>()
             .HasOne(r => r.User)
-            .WithMany()
+            .WithMany(u => u.Reservations)
             .HasForeignKey(r => r.UserId);
 
         modelBuilder.Entity<Reservation>()
