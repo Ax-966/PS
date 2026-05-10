@@ -38,7 +38,8 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             .HasOne(s => s.Sector)
             .WithMany(s => s.Seats)
             .HasForeignKey(s => s.SectorId);
-
+        
+ 
         // Reservation pertenece a un User y un Seat
         modelBuilder.Entity<Reservation>()
             .HasOne(r => r.User)
