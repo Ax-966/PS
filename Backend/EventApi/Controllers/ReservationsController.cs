@@ -2,6 +2,7 @@
 using Application.UseCases.Reservations.Handlers;
 using Application.UseCases.Reservations.Queries;
 using Microsoft.AspNetCore.Mvc;
+using Application.Exceptions;
 
 namespace EventApi.Controllers
 {
@@ -23,9 +24,17 @@ namespace EventApi.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateReservation command)
         {
-            var reservation = await _createReservationHandler.HandleAsync(command);
-            return Ok(reservation);
+            try
+            {
+                var reservation = await _createReservationHandler.HandleAsync(command);
+                return Ok(reservation);
+            }
+            catch (SeatReservationConflictException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
         }
+
 
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetByUser(int userId)
