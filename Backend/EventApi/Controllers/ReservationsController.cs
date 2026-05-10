@@ -1,46 +1,59 @@
-﻿using Application.UseCases.Reservations.Commands;
+﻿using Application.Exceptions;
+using Application.UseCases.Reservations.Commands;
 using Application.UseCases.Reservations.Handlers;
 using Application.UseCases.Reservations.Queries;
 using Microsoft.AspNetCore.Mvc;
-using Application.Exceptions;
+using static System.Net.Mime.MediaTypeNames;
 
-namespace EventApi.Controllers
+namespace EventApi.Controllers;
+
+[ApiController]
+[Route("api/v1/[controller]")]
+public class ReservationsController : ControllerBase
 {
-    [ApiController]
-    [Route("api/v1/[controller]")]
-    public class ReservationsController : ControllerBase
+    private readonly CreateReservationHandler _createHandler;
+    private readonly GetReservationByUserHandler _getByUserHandler;
+
+    public ReservationsController(
+        CreateReservationHandler createHandler,
+        GetReservationByUserHandler getByUserHandler)
     {
-        private readonly CreateReservationHandler _createReservationHandler;
-        private readonly GetReservationByUserHandler _getReservationByUserHandler;
+        _createHandler = createHandler;
+        _getByUserHandler = getByUserHandler;
+    }
 
-        public ReservationsController(
-            CreateReservationHandler createReservationHandler,
-            GetReservationByUserHandler getReservationByUserHandler)
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreateReservation command)
+    {
+        try
         {
-            _createReservationHandler = createReservationHandler;
-            _getReservationByUserHandler = getReservationByUserHandler;
+            var result = await _createHandler.HandleAsync(command);
+            return CreatedAtAction(nameof(GetByUser), new { userId = result.UserId }, result);
         }
-
-        [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateReservation command)
+        catch (SeatReservationConflictException ex)
         {
-            try
-            {
-                var reservation = await _createReservationHandler.HandleAsync(command);
-                return Ok(reservation);
-            }
-            catch (SeatReservationConflictException ex)
-            {
-                return Conflict(new { message = ex.Message });
-            }
+            return Conflict(new { message = ex.Message });
         }
-
-
-        [HttpGet("user/{userId}")]
-        public async Task<IActionResult> GetByUser(int userId)
+        catch (ConcurrencyException ex)
         {
-            var reservations = await _getReservationByUserHandler.HandleAsync(new GetReservationByUser { UserId = userId });
-            return Ok(reservations);
+            return Conflict(new { message = ex.Message });
         }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("user/{userId}")]
+    public async Task<IActionResult> GetByUser(int userId)
+    {
+        var result = await _getByUserHandler.HandleAsync(
+            new Application.UseCases.Reservations.Queries.GetReservationByUser
+            { UserId = userId });
+        return Ok(result);
     }
 }

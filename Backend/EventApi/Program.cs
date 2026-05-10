@@ -75,6 +75,7 @@ builder.Services.AddCors(options =>
 });
 
 // ─── Servicios ────────────────────────────────────────────────────
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
