@@ -39,6 +39,10 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<int>, int>
             .WithMany(s => s.Seats)
             .HasForeignKey(s => s.SectorId);
         
+        // Concurrencia
+        modelBuilder.Entity<Seat>()
+            .Property(s => s.Version)
+            .IsConcurrencyToken();        
  
         // Reservation pertenece a un User y un Seat
         modelBuilder.Entity<Reservation>()
