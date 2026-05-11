@@ -97,6 +97,10 @@ builder.Services.AddScoped<GetSectorsByEventHandler>();
 builder.Services.AddScoped<CreateReservationHandler>();
 builder.Services.AddScoped<GetReservationByUserHandler>();
 
+
+// ─── Background Services ───────────────────────────────────────
+builder.Services.AddHostedService<EventApi.BackgroundServices.ReservationCleanupService>();
+
 var app = builder.Build();
 
 // ─── Pipeline HTTP ────────────────────────────────────────────────
