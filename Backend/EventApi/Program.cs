@@ -14,6 +14,7 @@ using Domain.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Text;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ─── BD ───────────────────────────────────────────────────────────
@@ -96,6 +97,7 @@ builder.Services.AddScoped<GetSeatsByEventHandler>();
 builder.Services.AddScoped<GetSectorsByEventHandler>();
 builder.Services.AddScoped<CreateReservationHandler>();
 builder.Services.AddScoped<GetReservationByUserHandler>();
+builder.Services.AddScoped<ConfirmReservationHandler>();
 
 
 // ─── Background Services ───────────────────────────────────────

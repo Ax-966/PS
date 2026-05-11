@@ -13,13 +13,16 @@ public class ReservationsController : ControllerBase
 {
     private readonly CreateReservationHandler _createHandler;
     private readonly GetReservationByUserHandler _getByUserHandler;
+    private readonly ConfirmReservationHandler _confirmHandler;
 
     public ReservationsController(
         CreateReservationHandler createHandler,
-        GetReservationByUserHandler getByUserHandler)
+        GetReservationByUserHandler getByUserHandler,
+        ConfirmReservationHandler confirmHandler)
     {
         _createHandler = createHandler;
         _getByUserHandler = getByUserHandler;
+        _confirmHandler = confirmHandler;
     }
 
     [HttpPost]
@@ -55,5 +58,27 @@ public class ReservationsController : ControllerBase
             new Application.UseCases.Reservations.Queries.GetReservationByUser
             { UserId = userId });
         return Ok(result);
+    }
+
+    [HttpPost("{id}/confirm")]
+    public async Task<IActionResult> Confirm(Guid id, [FromBody] int userId)
+    {
+        try
+        {
+            var result = await _confirmHandler.HandleAsync(new ConfirmReservation
+            {
+                ReservationId = id,
+                UserId = userId
+            });
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 }
