@@ -11,6 +11,7 @@ using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using Domain.Entities;
+using Infrastructure.Seeders;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Text;
 
@@ -118,11 +119,19 @@ app.UseAuthentication(); // ← estaba faltando este
 app.UseAuthorization();
 app.MapControllers();
 
-// ─── Seed ─────────────────────────────────────────────────────────
+// ─── Seeders ─────────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await DbSeeder.SeedAsync(context);
 }
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
 
+    var userManager = services.GetRequiredService<UserManager<User>>();
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole<int>>>();
+
+    await IdentitySeeder.SeedAdminsAsync(userManager, roleManager);
+}
 app.Run();
