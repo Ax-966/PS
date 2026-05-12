@@ -36,21 +36,36 @@
           <button class="auth-tab" data-tab="register">Registrarse</button>
         </div>
 
-        <!-- Formulario de login -->
-        <div id="login-form" class="auth-form">
-          <div class="form-group">
-            <label for="login-username">Usuario</label>
-            <input type="text" id="login-username" placeholder="Ingresá tu usuario" autocomplete="username" />
-          </div>
-          <div class="form-group">
-            <label for="login-password">Contraseña</label>
-            <input type="password" id="login-password" placeholder="Ingresá tu contraseña" autocomplete="current-password" />
-          </div>
-          <div id="login-error" class="form-error" role="alert" aria-live="polite"></div>
-          <button class="btn-primary full-width" id="btn-login">Ingresar →</button>
-          <p class="auth-hint">Admin: <code>admin / admin123</code></p>
+       <!-- LOGIN -->
+      <div id="login-form" class="auth-form">
+        <div class="form-group">
+          <label for="login-email">Email</label>
+        
+          <input
+            type="email"
+            id="login-email"
+            placeholder="Ingresá tu email"
+            autocomplete="email"
+          />
         </div>
-
+      
+        <div class="form-group">
+          <label for="login-password">Contraseña</label>
+        
+          <input
+            type="password"
+            id="login-password"
+            placeholder="Ingresá tu contraseña"
+            autocomplete="current-password"
+          />
+        </div>
+      
+        <div id="login-error" class="form-error"></div>
+      
+        <button class="btn-primary full-width" id="btn-login">
+          Ingresar →
+        </button>
+      </div>
         <!-- Formulario de registro -->
         <div id="register-form" class="auth-form hidden">
           <div class="form-group">
@@ -191,21 +206,13 @@
     <div id="modal-root"></div>
 
 
-    <!--
-      ORDEN DE CARGA DE MÓDULOS (obligatorio — cada archivo depende del anterior):
-      1. constants.js  → constantes de negocio globales (SEAT, ACTION, etc.)
-      2. store.js      → wrapper de localStorage
-      3. audit.js      → registro inmutable de acciones (depende de store)
-      4. auth.js       → autenticación y sesión (depende de store + constants)
-      5. events.js     → CRUD de eventos + lógica de butacas (depende de todo lo anterior)
-      6. ui.js         → renderizado de vistas + Background worker (depende de todo)
-      7. main.js       → punto de entrada + listeners de auth (debe ir último)
-    -->
     <script src="/scripts/constants.js"></script>
     <script src="/scripts/store.js"></script>
     <script src="/scripts/audit.js"></script>
     <script src="/scripts/auth.js"></script>
     <script src="/scripts/events.js"></script>
+    <script src="/scripts/ui-timer.js"></script>
+    <script src="/scripts/ui-seats.js"></script>
     <script src="/scripts/ui.js"></script>
     <script src="/scripts/main.js"></script>
   </body>
