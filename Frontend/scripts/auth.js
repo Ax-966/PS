@@ -1,95 +1,294 @@
-/**
- * TicketVivo — auth.js
- * Módulo Auth: autenticación, registro y gestión de sesión de usuarios.
- * Depende de: constants.js (ADMIN_CREDENTIALS), store.js (Store)
- *
- * ORDEN DE CARGA: constants.js → store.js → audit.js → auth.js
- */
 
 'use strict';
 
-/* ============================================================
-   MÓDULO AUTH — Autenticación de usuarios
-   ============================================================ */
 const Auth = {
   currentUser: null,
 
-  /** Cargar usuario de la sesión actual. */
+  /* ============================================================
+     INIT
+     ============================================================ */
+
   init() {
     this.currentUser = Store.get('currentUser', null);
   },
 
-  /**
-   * Intentar iniciar sesión.
-   * @returns {{ success: boolean, error?: string }}
-   */
-  login(username, password) {
-    if (!username || !password) {
-      return { success: false, error: 'Completá usuario y contraseña.' };
+  /* ============================================================
+     LOGIN
+     ============================================================ */
+
+  async login(email, password) {
+
+    if (!email || !password) {
+      return {
+        success: false,
+        error: 'Completá email y contraseña.',
+      };
     }
-    // Verificar administrador hardcodeado
-    if (
-      username === ADMIN_CREDENTIALS.username &&
-      password === ADMIN_CREDENTIALS.password
-    ) {
-      this.currentUser = ADMIN_CREDENTIALS;
+
+    try {
+
+      const response = await fetch(`${API_BASE_URL}/Auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      /* =========================
+         ERROR LOGIN
+         ========================= */
+
+      if (!response.ok) {
+
+        const data = await response.json().catch(() => ({}));
+
+        return {
+          success: false,
+          error:
+            data?.errors?.[0] ||
+            'Las credenciales no son válidas.',
+        };
+      }
+
+      /* =========================
+         LOGIN OK
+         ========================= */
+
+      const data = await response.json();
+
+      const role =
+        _extractRoleFromToken(data.token) ||
+        data.role ||
+        'client';
+
+      this.currentUser = {
+        id: _extractIdFromToken(data.token),
+
+        name: data.name,
+
+        email: data.email,
+
+        token: data.token,
+
+        role,
+      };
+
       Store.set('currentUser', this.currentUser);
-      return { success: true };
+
+      return {
+        success: true,
+      };
+
+    } catch {
+
+      return {
+        success: false,
+        error: 'Error de conexión con el servidor.',
+      };
     }
-    // Verificar usuarios registrados
-    const users = Store.get('users', []);
-    const match = users.find(u => u.username === username && u.password === password);
-    if (match) {
-      this.currentUser = match;
-      Store.set('currentUser', match);
-      return { success: true };
-    }
-    return { success: false, error: 'Usuario o contraseña incorrectos.' };
   },
 
-  /**
-   * Registrar un nuevo usuario.
-   * @returns {{ success: boolean, error?: string }}
-   */
-  register(username, password, email) {
-    if (!username || !password || !email) {
-      return { success: false, error: 'Completá todos los campos.' };
+  /* ============================================================
+     REGISTER
+     ============================================================ */
+
+  async register(name, email, password) {
+
+    /* =========================
+       VALIDACIONES
+       ========================= */
+
+    if (!name || !email || !password) {
+      return {
+        success: false,
+        error: 'Completá todos los campos.',
+      };
     }
-    if (username.length < 3) {
-      return { success: false, error: 'El usuario debe tener al menos 3 caracteres.' };
+
+    if (name.length < 3) {
+      return {
+        success: false,
+        error: 'El nombre debe tener al menos 3 caracteres.',
+      };
     }
+
     if (password.length < 6) {
-      return { success: false, error: 'La contraseña debe tener al menos 6 caracteres.' };
+      return {
+        success: false,
+        error: 'La contraseña debe tener al menos 6 caracteres.',
+      };
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return { success: false, error: 'Ingresá un email válido.' };
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      return {
+        success: false,
+        error: 'Ingresá un email válido.',
+      };
     }
-    if (username === ADMIN_CREDENTIALS.username) {
-      return { success: false, error: 'Ese nombre de usuario no está disponible.' };
+
+    try {
+
+      const response = await fetch(`${API_BASE_URL}/Auth/register`, {
+        method: 'POST',
+
+        headers: {
+          'Content-Type': 'application/json',
+        },
+
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+        }),
+      });
+
+      /* =========================
+         ERROR REGISTER
+         ========================= */
+
+      if (!response.ok) {
+
+        const data = await response.json().catch(() => ({}));
+
+        return {
+          success: false,
+          error:
+            data?.errors?.[0] ||
+            'Error al registrar el usuario.',
+        };
+      }
+
+      /* =========================
+         REGISTER OK
+         ========================= */
+
+      const data = await response.json();
+
+      const role =
+        _extractRoleFromToken(data.token) ||
+        data.role ||
+        'client';
+
+      this.currentUser = {
+        id: _extractIdFromToken(data.token),
+
+        name: data.name,
+
+        email: data.email,
+
+        token: data.token,
+
+        role,
+      };
+
+      Store.set('currentUser', this.currentUser);
+
+      return {
+        success: true,
+      };
+
+    } catch {
+
+      return {
+        success: false,
+        error: 'Error de conexión con el servidor.',
+      };
     }
-    const users = Store.get('users', []);
-    if (users.find(u => u.username === username)) {
-      return { success: false, error: 'Ese usuario ya existe. Elegí otro.' };
-    }
-    const newUser = {
-      id:       `user-${Date.now()}`,
-      username,
-      password, // Nota: en producción real se hashea
-      email,
-      role:     'client',
-    };
-    Store.set('users', [...users, newUser]);
-    this.currentUser = newUser;
-    Store.set('currentUser', newUser);
-    return { success: true };
   },
+
+  /* ============================================================
+     LOGOUT
+     ============================================================ */
 
   logout() {
+
     this.currentUser = null;
+
     Store.set('currentUser', null);
+  },
+
+  /* ============================================================
+     HELPERS
+     ============================================================ */
+
+  isAuthenticated() {
+    return !!this.currentUser;
   },
 
   isAdmin() {
     return this.currentUser?.role === 'admin';
   },
+
+  isClient() {
+    return this.currentUser?.role === 'client';
+  },
+
+  getToken() {
+    return this.currentUser?.token || null;
+  },
+
+  getUser() {
+    return this.currentUser;
+  },
 };
+
+
+/* ============================================================
+   JWT HELPERS
+   ============================================================ */
+
+/**
+ * Extraer ROLE desde JWT (.NET Identity)
+ */
+function _extractRoleFromToken(token) {
+
+  try {
+
+    const payload = JSON.parse(
+      atob(token.split('.')[1])
+    );
+
+    const role =
+      payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
+      payload['role'] ||
+      payload['Role'];
+
+    return typeof role === 'string'
+      ? role.toLowerCase()
+      : null;
+
+  } catch {
+
+    return null;
+  }
+}
+
+
+/**
+ * Extraer USER ID desde JWT
+ */
+function _extractIdFromToken(token) {
+
+  try {
+
+    const payload = JSON.parse(
+      atob(token.split('.')[1])
+    );
+
+    return (
+      payload['sub'] ||
+      payload['Sub'] ||
+      null
+    );
+
+  } catch {
+
+    return null;
+  }
+}
