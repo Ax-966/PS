@@ -1,10 +1,3 @@
-/**
- * TicketVivo — events.js
- * Ahora consume backend (.NET API)
- * LocalStorage queda solo para Auth/UI.
- *
- * ORDEN DE CARGA: constants.js → store.js → audit.js → auth.js → api.js → events.js
- */
 
 'use strict';
 
@@ -14,9 +7,7 @@ const API_BASE_URL = 'https://localhost:7198/api/v1';
    EVENTS
    ============================================================ */
 const Events = {
-  /**
-   * Generar array de butacas para un sector dado.
-   */
+
   generateSeats(sectorId, rows, cols) {
     const seats = [];
     for (let r = 1; r <= rows; r++) {
@@ -145,11 +136,115 @@ const Events = {
 };
 
 
-  /* ============================================================
-   MÓDULO SEATS — Lógica de negocio de butacas
+/* ============================================================
+   RESERVATIONS
    ============================================================ */
+const Reservations = {
+
+  async create(userId, seatId) {
+
+    const token = Auth.getToken();
+
+    const response = await fetch(
+      `${API_BASE_URL}/Reservations`,
+      {
+        method: 'POST',
+
+        headers: {
+          'Content-Type': 'application/json',
+
+          ...(token && {
+            Authorization: `Bearer ${token}`,
+          }),
+        },
+
+        body: JSON.stringify({
+          userId,
+          seatId,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+
+      let errorData = {};
+
+      try {
+        errorData = await response.json();
+      } catch {}
+
+      const error = new Error(
+        errorData?.message ||
+        'Error al crear la reserva.'
+      );
+
+      error.status = response.status;
+
+      throw error;
+    }
+
+    return await response.json();
+  },
+
+  /**
+   * Obtener reservas por usuario
+   */
+  async getByUser(userId) {
+
+    const token = Auth.getToken();
+
+    const response = await fetch(
+      `${API_BASE_URL}/Reservations/user/${userId}`,
+      {
+        headers: {
+          ...(token && {
+            Authorization: `Bearer ${token}`,
+          }),
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        'Error al obtener reservas.'
+      );
+    }
+
+    return await response.json();
+  },
+
+  /**
+   * Cancelar reserva
+   */
+  async delete(reservationId) {
+
+    const token = Auth.getToken();
+
+    const response = await fetch(
+      `${API_BASE_URL}/Reservations/${reservationId}`,
+      {
+        method: 'DELETE',
+
+        headers: {
+          ...(token && {
+            Authorization: `Bearer ${token}`,
+          }),
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        'Error al cancelar la reserva.'
+      );
+    }
+
+    return true;
+  },
+};
+
 const Seats = {
-  // Inicializar datos de ejemplo en el BACKEND (solo para desarrollo/pruebas)
+
   async initDefaultData() {
     const events = await Events.getAll();
     if (events.length > 0) return;
@@ -244,7 +339,6 @@ const Seats = {
   },
 
   async releaseExpired() {
-    // TODO: implementar endpoint en el backend
     return { count: 0 };
 }
 };
