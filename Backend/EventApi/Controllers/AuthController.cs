@@ -30,7 +30,8 @@ public class AuthController : ControllerBase
         {
             token = result.Token,
             email = result.Email,
-            name  = result.Name
+            name  = result.Name,
+            role  = result.Role 
         });
     }
     [HttpPost("login")]
@@ -49,7 +50,8 @@ public class AuthController : ControllerBase
         {
             token = result.Token,
             email = result.Email,
-            name  = result.Name
+            name  = result.Name,
+            role  = result.Role
         });
     }
 }
