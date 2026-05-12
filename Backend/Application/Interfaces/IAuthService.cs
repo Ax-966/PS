@@ -8,4 +8,4 @@ public interface IAuthService
 
     Task<AuthResponse> LoginAsync(string email, string password);
 }
-public record AuthResponse(bool Success, string? Token, string? Email, string? Name, IEnumerable<string> Errors);
+public record AuthResponse(bool Success, string? Token, string? Email, string? Name, string? Role, IEnumerable<string> Errors);
