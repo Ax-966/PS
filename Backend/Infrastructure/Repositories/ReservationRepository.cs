@@ -34,4 +34,18 @@ public class ReservationRepository : RepositoryBase<Reservation>, IReservationRe
     {
         return await FindByConditionAsync(r => r.Status == status);
     }
+    public async Task<IEnumerable<Reservation>> GetExpiredReservationsAsync()
+    {
+     
+        return await FindByConditionAsync(r =>  r.Status == "Pending" && r.ExpiresAt < DateTime.UtcNow
+        );
+    }
+    public async Task DeleteAsync(Reservation reservation)
+    {
+        AppDbContext
+            .Set<Reservation>()
+            .Remove(reservation);
+
+        await Task.CompletedTask;
+    }
 }

@@ -14,7 +14,6 @@ namespace Domain.Entities
         public int SeatNumber { get; set; }
         public string? Status { get; set; }
         public int Version { get; set; }
-
         public virtual Sector? Sector { get; set; }
     }
 }

@@ -10,20 +10,18 @@ public class CreateEventHandler : ICommandHandler<CreateEvent, EventResponseDto>
     private readonly IEventRepository _eventRepository;
     private readonly ISectorRepository _sectorRepository;
     private readonly ISeatRepository _seatRepository;
-
-    public CreateEventHandler(IEventRepository eventRepository)
-    {
-        _eventRepository = eventRepository;
-    }
+    private readonly IUnitOfWork _unitOfWork;
 
     public CreateEventHandler(
         IEventRepository eventRepository,
         ISectorRepository sectorRepository,
-        ISeatRepository seatRepository)
+        ISeatRepository seatRepository,
+        IUnitOfWork unitOfWork)
     {
         _eventRepository = eventRepository;
         _sectorRepository = sectorRepository;
         _seatRepository = seatRepository;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<EventResponseDto> HandleAsync(CreateEvent command)
@@ -37,6 +35,7 @@ public class CreateEventHandler : ICommandHandler<CreateEvent, EventResponseDto>
         };
 
         await _eventRepository.CreateAsync(newEvent);
+        await _unitOfWork.SaveChangesAsync();
 
         Console.WriteLine($"Cantidad de sectores recibidos: {command.Sectors.Count}");
 
@@ -52,6 +51,8 @@ public class CreateEventHandler : ICommandHandler<CreateEvent, EventResponseDto>
             };
 
             await _sectorRepository.CreateAsync(newSector);
+            await _unitOfWork.SaveChangesAsync(); 
+            
 
             for (int row = 1; row <= sectorItem.Rows; row++)
             {
@@ -70,8 +71,9 @@ public class CreateEventHandler : ICommandHandler<CreateEvent, EventResponseDto>
                     await _seatRepository.CreateAsync(newSeat);
                 }
             }
+            await _unitOfWork.SaveChangesAsync();
         }
-
+        
         return new EventResponseDto
         {
             Id = newEvent.Id,

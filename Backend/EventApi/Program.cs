@@ -14,6 +14,7 @@ using Domain.Entities;
 using Infrastructure.Seeders;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Text;
+using EventApi.Workers;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -69,6 +70,8 @@ builder.Services.AddCors(options =>
             .WithOrigins(
                 "http://127.0.0.1:5500",
                 "http://localhost:5500",
+                "http://127.0.0.1:5501",
+                "http://localhost:5501",
                 "http://localhost:3000"
             )
             .AllowAnyHeader()
@@ -79,6 +82,7 @@ builder.Services.AddCors(options =>
 // ─── Servicios ────────────────────────────────────────────────────
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddHostedService<ReservationTimeoutWorker>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -95,14 +99,14 @@ builder.Services.AddScoped<CreateEventHandler>();
 builder.Services.AddScoped<GetAllEventsHandler>();
 builder.Services.AddScoped<GetEventByIdHandler>();
 builder.Services.AddScoped<GetSeatsByEventHandler>();
+builder.Services.AddScoped<GetSeatByIdHandler>();
 builder.Services.AddScoped<GetSectorsByEventHandler>();
 builder.Services.AddScoped<CreateReservationHandler>();
 builder.Services.AddScoped<GetReservationByUserHandler>();
 builder.Services.AddScoped<ConfirmReservationHandler>();
+builder.Services.AddScoped<DeleteReservationHandler>();
 
 
-// ─── Background Services ───────────────────────────────────────
-builder.Services.AddHostedService<EventApi.BackgroundServices.ReservationCleanupService>();
 
 var app = builder.Build();
 

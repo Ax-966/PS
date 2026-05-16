@@ -20,19 +20,21 @@ public class ReservationTimeoutWorker : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            using (var scope = _serviceProvider.CreateScope())
-            {
-                var reservationRepo = scope.ServiceProvider.GetRequiredService<IReservationRepository>();
-                var seatRepo = scope.ServiceProvider.GetRequiredService<ISeatRepository>();
-                var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-                // AGREGAMOS EL REPOSITORIO DE AUDITORIA
-                var auditLogRepo = scope.ServiceProvider.GetRequiredService<IAuditLogRepository>();
+            _logger.LogInformation($"Worker ejecutándose: {DateTime.UtcNow}");
 
+            using var scope = _serviceProvider.CreateScope();
+
+            var reservationRepo = scope.ServiceProvider.GetRequiredService<IReservationRepository>();
+            var seatRepo        = scope.ServiceProvider.GetRequiredService<ISeatRepository>();
+            var auditLogRepo    = scope.ServiceProvider.GetRequiredService<IAuditLogRepository>();
+
+            try
+            {
                 var expiredReservations = await reservationRepo.GetExpiredReservationsAsync();
+                _logger.LogInformation($"Reservas expiradas encontradas: {expiredReservations.Count()}");
 
                 foreach (var res in expiredReservations)
                 {
-                    await unitOfWork.BeginTransactionAsync();
                     try
                     {
                         var seat = await seatRepo.GetSeatByIdAsync(res.SeatId);
@@ -45,30 +47,33 @@ public class ReservationTimeoutWorker : BackgroundService
                         res.Status = "Expired";
                         await reservationRepo.UpdateAsync(res);
 
-                        // --- NUEVO: AUDITORIA DE EXPIRACIÓN ---
                         await auditLogRepo.CreateAsync(new AuditLog
                         {
-                            UserId = res.UserId, // Registramos de quién era la reserva
-                            Action = "RESERVATION_EXPIRED",
+                            UserId     = res.UserId,
+                            Action     = "RESERVATION_EXPIRED",
                             EntityType = "Reservation",
-                            EntityId = res.Id.ToString(),
-                            Details = $"Reserva expirada automáticamente tras 5 minutos. Butaca {res.SeatId} liberada.",
-                            CreatedAt = DateTime.UtcNow
+                            EntityId   = res.Id.ToString(),
+                            Details    = $"Reserva expirada automáticamente. Butaca {res.SeatId} liberada.",
+                            CreatedAt  = DateTime.UtcNow
                         });
-                        // --------------------------------------
 
-                        await unitOfWork.CommitAsync();
+                        // Guardar usando el mismo contexto que los repositorios
+                        await reservationRepo.SaveAsync();
+
                         _logger.LogWarning($"Reserva {res.Id} expirada. Butaca {res.SeatId} liberada.");
                     }
                     catch (Exception ex)
                     {
-                        await unitOfWork.RollbackAsync();
-                        _logger.LogError($"Error al procesar expiración de reserva {res.Id}: {ex.Message}");
+                        _logger.LogError($"Error al procesar reserva {res.Id}: {ex.Message}");
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error general en el Worker: {ex.Message} — {ex.InnerException?.Message}");
+            }
 
-            await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
         }
     }
 }

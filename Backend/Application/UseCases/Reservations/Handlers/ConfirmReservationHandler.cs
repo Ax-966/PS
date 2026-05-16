@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Application.Exceptions;
 using Application.Interfaces;
@@ -9,7 +6,7 @@ using Application.Interfaces.CQRS;
 using Application.UseCases.Reservations.Commands;
 using Domain.Entities;
 
-namespace Application.UseCases.Reservations.Handlers 
+namespace Application.UseCases.Reservations.Handlers
 {
     public class ConfirmReservationHandler : ICommandHandler<ConfirmReservation, Reservation>
     {
@@ -33,27 +30,39 @@ namespace Application.UseCases.Reservations.Handlers
         public async Task<Reservation> HandleAsync(ConfirmReservation command)
         {
             await _unitOfWork.BeginTransactionAsync();
+
             try
             {
-                var reservation = await _reservationRepository.GetReservationByIdAsync(command.ReservationId);
+                var reservation = await _reservationRepository
+                    .GetReservationByIdAsync(command.ReservationId);
+
                 if (reservation == null)
                     throw new Exception("Reserva no encontrada.");
 
                 if (reservation.Status != "Pending")
-                    throw new InvalidOperationException("La reserva no está en estado pendiente.");
+                    throw new InvalidOperationException(
+                        "La reserva no está en estado pendiente."
+                    );
 
                 if (reservation.ExpiresAt <= DateTime.UtcNow)
-                    throw new InvalidOperationException("La reserva ha expirado.");
+                    throw new InvalidOperationException(
+                        "La reserva ha expirado."
+                    );
 
-                var seat = await _seatRepository.GetSeatByIdAsync(reservation.SeatId);
+                var seat = await _seatRepository
+                    .GetSeatByIdAsync(reservation.SeatId);
+
                 if (seat == null)
                     throw new Exception("Butaca no encontrada.");
 
                 // Cambiar estados
                 seat.Status = "Sold";
+                seat.Version++;
+
                 reservation.Status = "Paid";
 
                 await _seatRepository.UpdateAsync(seat);
+
                 await _reservationRepository.UpdateAsync(reservation);
 
                 await _auditLogRepository.CreateAsync(new AuditLog
@@ -62,12 +71,22 @@ namespace Application.UseCases.Reservations.Handlers
                     Action = "PURCHASE",
                     EntityType = "Reservation",
                     EntityId = reservation.Id.ToString(),
-                    Details = $"Reservation {reservation.Id} confirmed, seat {seat.Id} sold",
+                    Details =
+                        $"Reservation {reservation.Id} confirmed, seat {seat.Id} sold",
                     CreatedAt = DateTime.UtcNow,
                 });
 
                 await _unitOfWork.CommitAsync();
+
                 return reservation;
+            }
+            catch (ConcurrencyException)
+            {
+                await _unitOfWork.RollbackAsync();
+
+                throw new ConcurrencyException(
+                    "La butaca fue modificada por otro usuario."
+                );
             }
             catch
             {

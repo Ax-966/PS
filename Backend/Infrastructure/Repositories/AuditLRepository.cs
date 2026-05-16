@@ -23,4 +23,8 @@ public class AuditLRepository : RepositoryBase<AuditLog>, IAuditLogRepository
     {
         return await FindByConditionAsync(a => a.Action == action);
     }
+    public async Task<IEnumerable<AuditLog>> GetAllAsync()
+    {
+        return await FindAllAsync();
+    }
 }

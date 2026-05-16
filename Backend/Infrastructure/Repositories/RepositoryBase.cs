@@ -19,7 +19,8 @@ public abstract class RepositoryBase<T> : IRepositoryBase<T> where T : class
             .AsNoTracking()
             .ToListAsync();
 
-    public async Task<IEnumerable<T>> FindByConditionAsync(Expression<Func<T, bool>> expression) =>
+    public async Task<IEnumerable<T>> FindByConditionAsync(
+        Expression<Func<T, bool>> expression) =>
         await AppDbContext.Set<T>()
             .Where(expression)
             .AsNoTracking()
@@ -28,18 +29,18 @@ public abstract class RepositoryBase<T> : IRepositoryBase<T> where T : class
     public async Task CreateAsync(T entity)
     {
         await AppDbContext.Set<T>().AddAsync(entity);
-        await AppDbContext.SaveChangesAsync();
     }
 
-    public async Task UpdateAsync(T entity)
+    public Task UpdateAsync(T entity)
     {
         AppDbContext.Set<T>().Update(entity);
-        await AppDbContext.SaveChangesAsync();
+        return Task.CompletedTask;
     }
 
-    public async Task DeleteAsync(T entity)
+    public Task DeleteAsync(T entity)
     {
         AppDbContext.Set<T>().Remove(entity);
-        await AppDbContext.SaveChangesAsync();
+        return Task.CompletedTask;
     }
+    public async Task SaveAsync() => await AppDbContext.SaveChangesAsync();
 }

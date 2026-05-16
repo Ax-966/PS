@@ -2,6 +2,7 @@ using System;
 using Application.Interfaces;
 using Domain.Entities;
 using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Repositories;
 
@@ -11,8 +12,8 @@ public class SeatRepository : RepositoryBase<Seat>, ISeatRepository
 
     public async Task<Seat?> GetSeatByIdAsync(Guid id)
     {
-        var seats = await FindByConditionAsync(s => s.Id == id);
-        return seats.FirstOrDefault();
+        return await AppDbContext.Seats
+            .FirstOrDefaultAsync(s => s.Id == id);
     }
     public async Task<IEnumerable<Seat>> GetSeatsBySectorAsync(int sectorId)
     {

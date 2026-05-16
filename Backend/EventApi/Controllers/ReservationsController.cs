@@ -14,15 +14,15 @@ public class ReservationsController : ControllerBase
     private readonly CreateReservationHandler _createHandler;
     private readonly GetReservationByUserHandler _getByUserHandler;
     private readonly ConfirmReservationHandler _confirmHandler;
+    private readonly DeleteReservationHandler _deleteHandler;
 
-    public ReservationsController(
-        CreateReservationHandler createHandler,
-        GetReservationByUserHandler getByUserHandler,
-        ConfirmReservationHandler confirmHandler)
+    public ReservationsController(CreateReservationHandler createHandler, GetReservationByUserHandler getByUserHandler,
+        ConfirmReservationHandler confirmHandler, DeleteReservationHandler deleteHandler)
     {
         _createHandler = createHandler;
         _getByUserHandler = getByUserHandler;
         _confirmHandler = confirmHandler;
+        _deleteHandler = deleteHandler;
     }
 
     [HttpPost]
@@ -79,6 +79,29 @@ public class ReservationsController : ControllerBase
         catch (Exception ex)
         {
             return BadRequest(new { message = ex.Message });
+        }
+    }
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(Guid id, [FromQuery] int userId)
+    {
+        try
+        {
+            var result =
+                await _deleteHandler.HandleAsync(
+                    new DeleteReservation
+                    {
+                        ReservationId = id,
+                        UserId = userId
+                    });
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new
+            {
+                message = ex.Message
+            });
         }
     }
 }
