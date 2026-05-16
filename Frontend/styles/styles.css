@@ -909,12 +909,28 @@ code {
 /* Grid de asientos */
 .seat-map { overflow-x: auto; padding-bottom: 8px; }
 .seat-grid {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   width: max-content;
   margin: 0 auto;
 }
 
+.seat-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.seat-row-label {
+  width: 20px;
+  font-size: 0.65rem;
+  color: var(--text-3);
+  text-align: right;
+  flex-shrink: 0;
+  font-family: 'DM Mono', monospace;
+}
 .seat {
   width: 34px;
   height: 34px;
@@ -994,7 +1010,6 @@ code {
   font-size: 0.8rem;
   color: var(--text-3);
 }
-
 
 /* ============================================================
    PANEL DE SELECCIÓN (lateral fijo)

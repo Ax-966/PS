@@ -11,7 +11,31 @@ const Auth = {
   init() {
     this.currentUser = Store.get('currentUser', null);
   },
+  
+  getUserId() {
 
+  const token = this.getToken();
+
+  if (!token) return null;
+
+  try {
+
+    const payload = JSON.parse(
+      atob(token.split('.')[1])
+    );
+
+    return (
+      payload.nameid ||
+      payload.sub ||
+      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] ||
+      null
+    );
+
+  } catch {
+
+    return null;
+  }
+},
   /* ============================================================
      LOGIN
      ============================================================ */

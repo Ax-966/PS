@@ -87,7 +87,7 @@ const UI = {
     });
 
     document.getElementById('btn-purchase')?.addEventListener('click', () => this._handlePurchase());
-    document.getElementById('btn-clear-selection')?.addEventListener('click', () => this.clearSelection());
+    document.getElementById('btn-clear-selection')?.addEventListener('click', () => this._handleCancelSelection());
 
     this._initScrollTop();
   },
@@ -164,7 +164,7 @@ const UI = {
           break;
         case 'admin-audit':
           if (!Auth.isAdmin()) { html = '<div class="error-state">Acceso denegado.</div>'; break; }
-          html = this._buildAuditLogs();
+          html = await this._buildAuditLogs();  // ← agregar await
           break;
         default:
           html = '<div class="error-state">Vista no encontrada.</div>';
@@ -422,19 +422,23 @@ const UI = {
    * Si no hay butacas → ocultar panel y parar timer.
    * Si hay butacas → mostrar panel y arrancar timer via UITimer.start().
    */
-  _updateSelectionPanel() {
+_updateSelectionPanel() {
     const panel   = document.getElementById('selection-panel');
+    if (!panel) return; // Primero validamos que el panel exista
+
     const listEl  = document.getElementById('selection-list');
     const totalEl = document.getElementById('selection-total-amount');
     const countEl = document.getElementById('selection-count');
-    if (!panel) return;
+ 
 
+    // 2. Si no hay asientos, ocultamos y salimos
     if (!this.selectedSeats.length) {
       panel.classList.add('hidden');
-      UITimer.stop(); // ← delegado a ui-timer.js
+      if (typeof UITimer !== 'undefined') UITimer.stop();
       return;
     }
 
+    // 3. Mostramos el panel y renderizamos la lista
     panel.classList.remove('hidden');
 
     if (listEl) {
@@ -451,44 +455,127 @@ const UI = {
       `).join('');
     }
 
+    // 4. Totales y Timer
     const total = this.selectedSeats.reduce((sum, s) => sum + s.price, 0);
     if (totalEl) totalEl.textContent = `$${total.toLocaleString('es-AR')}`;
     if (countEl) countEl.textContent = `${this.selectedSeats.length} butaca${this.selectedSeats.length !== 1 ? 's' : ''}`;
 
-    UITimer.start(); // ← delegado a ui-timer.js
+    if (typeof UITimer !== 'undefined') UITimer.start();
   },
-
-  async removeSeat(seatId) {
+async removeSeat(seatId) {
     const idx = this.selectedSeats.findIndex(s => s.seatId === seatId);
     if (idx < 0) return;
-    this.selectedSeats.splice(idx, 1);
-    await this._refreshSeatMap();
-    this._updateSelectionPanel();
-  },
+
+    const seatToRemove = this.selectedSeats[idx];
+    
+    // IMPORTANTE: Necesitamos el reservationId que devolvió el POST al crear
+    if (!seatToRemove.reservationId) {
+        console.error("No hay ID de reserva para esta butaca");
+        this.selectedSeats.splice(idx, 1); // La quitamos igual de la lista local
+        this._updateSelectionPanel();
+        return;
+    }
+
+    try {
+      const userId = Auth.getUserId();
+      await Reservations.cancel(seatToRemove.reservationId, Number(userId));
+
+      this.selectedSeats.splice(idx, 1);
+      await this._refreshSeatMap();
+      this._updateSelectionPanel();
+      
+      this.showToast('Butaca liberada.', 'info');
+    } catch (err) {
+      // Si el error es "No puedes cancelar", igual refrescamos el mapa
+      await this._refreshSeatMap();
+      this.showToast('Error al liberar: ' + err.message, 'error');
+    }
+},
 
   async clearSelection() {
-    this.selectedSeats = [];
-    await this._refreshSeatMap();
-    this._updateSelectionPanel();
-    this.showToast('Selección cancelada.', 'info');
+    if (!this.selectedSeats.length) return;
+
+    try {
+      const userId = Auth.getUserId();
+      this.showToast('Liberando todas las butacas...', 'info');
+
+      // 1. Creamos una lista de promesas para cancelar todas en paralelo
+      const cancelPromises = this.selectedSeats.map(seat => 
+        Reservations.cancel(seat.reservationId, Number(userId))
+      );
+
+      // 2. Esperamos a que el servidor procese todas
+      await Promise.all(cancelPromises);
+
+      // 3. Limpiamos localmente
+      this.selectedSeats = [];
+      
+      await this._refreshSeatMap();
+      this._updateSelectionPanel();
+      
+      this.showToast('Selección cancelada y butacas liberadas.', 'success');
+
+    } catch (err) {
+      console.error('[UI] Error al limpiar selección:', err);
+      this.showToast('Hubo un error al intentar liberar las butacas.', 'error');
+      
+      // Opcional: refrescar de todos modos para sincronizar estados
+      await this._refreshSeatMap();
+      this._updateSelectionPanel();
+    }
   },
 
   /** Alias público para que UITimer pueda llamar al refresh del mapa */
   async _refreshSeatMap() {
+    // Asegurate de que UISeats.refresh() vuelva a pedir los datos a la API
     await UISeats.refresh();
   },
 
   // ─── Compra ───────────────────────────────────────────────────────
 
   async _handlePurchase() {
-    if (!this.selectedSeats.length) return;
-    const count        = this.selectedSeats.length;
+
+  if (!this.selectedSeats.length)
+    return;
+
+  try {
+
+    const userId = Auth.getUserId();
+
+    for (const seat of this.selectedSeats) {
+
+      await Reservations.confirm(
+        seat.reservationId,
+        Number(userId)
+      );
+    }
+
+    const count =
+      this.selectedSeats.length;
+
     this.selectedSeats = [];
+
     UITimer.stop();
+
     this._updateSelectionPanel();
+
     await this._refreshSeatMap();
+
     this._showPurchaseModal(count);
-  },
+
+  } catch (err) {
+
+    console.error(
+      '[UI] Error al confirmar compra:',
+      err
+    );
+
+    this.showToast(
+      'Error al confirmar compra.',
+      'error'
+    );
+  }
+},
 
   _showPurchaseModal(count) {
     const root = document.getElementById('modal-root');
@@ -512,7 +599,36 @@ const UI = {
     `;
     setTimeout(() => { if (root) root.innerHTML = ''; }, 10000);
   },
+// ─── Cancelación de Selección ──────────────────────────────────────
+ async _handleCancelSelection() {
+    if (!this.selectedSeats.length) return;
 
+    try {
+      const userId = Auth.getUserId();
+      // Usamos Number() para asegurar que enviamos un entero limpio
+      const cleanUserId = Number(userId); 
+
+      const cancelPromises = this.selectedSeats.map(seat => 
+        Reservations.cancel(seat.reservationId, cleanUserId)
+      );
+
+      await Promise.all(cancelPromises);
+
+      this.selectedSeats = [];
+      if (typeof UITimer !== 'undefined') UITimer.stop();
+
+      await this._refreshSeatMap();
+      this._updateSelectionPanel();
+
+      this.showToast('Selección liberada.', 'success');
+
+    } catch (err) {
+      console.error('[UI] Error al cancelar selección:', err);
+      // Si falla, refrescamos igual para ver qué quedó en la DB
+      await this._refreshSeatMap();
+    }
+  }, 
+ 
   // ─── Mis entradas ─────────────────────────────────────────────────
 
   async _buildMyTickets() {
@@ -679,6 +795,23 @@ const UI = {
               </select>
             </div>
           </div>
+          <div class="form-row" style="margin-top:16px">
+            <div class="form-group">
+              <label>Sectores</label>
+              <div id="sectors-container">
+                <div class="sector-item" data-index="0">
+                  <input type="text"   class="s-name"  placeholder="Nombre (ej: Campo)"  />
+                  <input type="number" class="s-rows"  placeholder="Filas"   min="1" />
+                  <input type="number" class="s-cols"  placeholder="Columnas" min="1" />
+                  <input type="number" class="s-price" placeholder="Precio"  min="0" />
+                  <button type="button" onclick="UI._removeSector(this)">✕</button>
+                </div>
+              </div>
+              <button type="button" class="btn-ghost" onclick="UI._addSector()" style="margin-top:8px">
+                + Agregar sector
+              </button>
+            </div>
+          </div>
           <div class="form-actions" style="margin-top:24px">
             <button class="btn-secondary" type="button" onclick="UI.renderView('admin')">Cancelar</button>
             <button class="btn-primary"   type="button" id="btn-save-event">
@@ -707,23 +840,67 @@ const UI = {
     }
 
     try {
+      const sectorItems = document.querySelectorAll('.sector-item');
+      const sectors = Array.from(sectorItems).map(item => ({
+        name:     item.querySelector('.s-name')?.value.trim()   || '',
+        rows:     Number(item.querySelector('.s-rows')?.value)  || 5,
+        cols:     Number(item.querySelector('.s-cols')?.value)  || 10,
+        price:    Number(item.querySelector('.s-price')?.value) || 0,
+        capacity: (Number(item.querySelector('.s-rows')?.value) || 5) *
+                  (Number(item.querySelector('.s-cols')?.value) || 10),
+      })).filter(s => s.name);
+
+      if (!sectors.length) {
+        this.showToast('Agregá al menos un sector con nombre.', 'error');
+        return;
+      }
+
       if (eventId) {
         await Events.update(eventId, { name, eventDate: date, venue, status });
         this.showToast('Evento actualizado correctamente.', 'success');
       } else {
-        const created = await Events.create({ name, eventDate: date, venue, status });
+        const created = await Events.create({ name, eventDate: date, venue, status, sectors });
         this.showToast(`Evento "${created.name}" creado.`, 'success');
       }
       await this.renderView('admin');
-    } catch (error) {
-      this.showToast(error.message || 'Error al guardar el evento.', 'error');
+      } catch (error) {
+            this.showToast(error.message || 'Error al guardar el evento.', 'error');
     }
   },
+  _addSector() {
+  const container = document.getElementById('sectors-container');
+  const div = document.createElement('div');
+  div.className = 'sector-item';
+  div.innerHTML = `
+    <input type="text"   class="s-name"  placeholder="Nombre (ej: Platea)" />
+    <input type="number" class="s-rows"  placeholder="Filas"    min="1" />
+    <input type="number" class="s-cols"  placeholder="Columnas" min="1" />
+    <input type="number" class="s-price" placeholder="Precio"   min="0" />
+    <button type="button" onclick="UI._removeSector(this)">✕</button>
+  `;
+  container.appendChild(div);
+},
+
+_removeSector(btn) {
+  const container = document.getElementById('sectors-container');
+  if (container.children.length > 1) btn.parentElement.remove();
+},
 
   // ─── Auditoría ────────────────────────────────────────────────────
-
-  _buildAuditLogs() {
-    const allLogs = Audit.getLogs().slice().reverse();
+  async _fetchAuditLogs() {
+  try {
+    const token = Auth.getToken();
+    const res = await fetch(`${API_BASE_URL}/AuditLogs`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+},
+  async _buildAuditLogs() {
+    const allLogs = await this._fetchAuditLogs();
     const actionStyle = {
       [ACTION.RESERVE_SUCCESS]: 'success',
       [ACTION.RESERVE_FAIL]:    'error',
@@ -772,10 +949,10 @@ const UI = {
     if (!logs.length) return '<tr><td colspan="4" class="empty-cell">No hay registros.</td></tr>';
     return logs.map(log => `
       <tr class="audit-row ${map[log.action] || ''}">
-        <td class="audit-ts">${new Date(log.timestamp).toLocaleString('es-AR')}</td>
-        <td>${this._escapeHtml(log.user)}</td>
-        <td><span class="action-badge ${map[log.action] || ''}">${log.action}</span></td>
-        <td class="audit-resource">${this._escapeHtml(log.resource?.seatId || '—')}</td>
+      <td class="audit-ts">${new Date(log.createdAt).toLocaleString('es-AR')}</td>
+      <td>${this._escapeHtml(String(log.userId || 'sistema'))}</td>
+      <td class="audit-resource">${this._escapeHtml(log.entityId || '—')}</td>
+      <td class="audit-resource">${this._escapeHtml(log.resource?.seatId || '—')}</td>
       </tr>
     `).join('');
   },
@@ -838,11 +1015,18 @@ const UI = {
 
 const Background = {
   start() {
+    // Polling existente para reservas expiradas
     setInterval(async () => {
       try {
         await Seats.releaseExpired();
-      } catch {
-      }
+      } catch { }
     }, RELEASE_CHECK_MS);
+
+    // ← AGREGAR ESTO: refrescar el mapa cada 15s para sincronizar con otros usuarios
+    setInterval(async () => {
+      if (UI.currentView === 'event-detail') {
+        await UISeats.refresh();
+      }
+    }, 15_000);
   },
 };

@@ -14,7 +14,7 @@ const UITimer = {
   start() {
     this.stop(); // limpiar interval anterior antes de crear uno nuevo
 
-    this._intervalId = setInterval(() => {
+    this._intervalId = setInterval(async() => {
       if (!UI.selectedSeats.length) {
         this.stop();
         return;
@@ -27,7 +27,7 @@ const UITimer = {
       this._render(remaining);
 
       if (remaining === 0) {
-        this._handleExpired();
+        await this._handleExpired();
       }
     }, 1000);
   },
@@ -76,20 +76,26 @@ const UITimer = {
       el.removeAttribute('aria-label');
     }
   },
-
-
-  _handleExpired() {
+  async _handleExpired() {
     const now     = Date.now();
     const expired = UI.selectedSeats.filter(s => s.lockExpiry <= now);
     if (!expired.length) return;
 
     UI.selectedSeats = UI.selectedSeats.filter(s => s.lockExpiry > now);
     UI._updateSelectionPanel();
-    UISeats.refresh();
 
+    // Esperar 35s para que el Worker procese la expiración antes de refrescar
     UI.showToast(
-      `⏰ ${expired.length} butaca${expired.length > 1 ? 's' : ''} liberada${expired.length > 1 ? 's' : ''} por tiempo de espera.`,
+      `⏰ Reserva expirada. Actualizando el mapa...`,
       'warning',
     );
-  },
+
+    await new Promise(resolve => setTimeout(resolve, 35_000));
+    await UISeats.refresh();
+
+    UI.showToast(
+      `🔓 Butaca liberada y disponible nuevamente.`,
+      'info',
+    );
+},
 };
