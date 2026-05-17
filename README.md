@@ -63,19 +63,24 @@ Entrega 2
 >Simulación de pago: el usuario con reserva activa puede confirmar la compra y recibe un ticket como comprobante. La operación es atómica: si cualquier parte falla, se ejecuta un rollback completo.
 >Auditoría: cada acción relevante (intento de reserva, pago, liberación automática) queda registrada con el usuario, la acción, el recurso afectado y el timestamp exacto.
 
-Endpoints principales
+Endpoints 
 
-| Método | Endpoint                         | Descripción                                |
-|--------|----------------------------------|--------------------------------------------|
-| GET    | /api/v1/Events                   | Listar todos los eventos                   |
-| GET    | /api/v1/Events/{id}              | Obtener evento por ID                      |
-| POST   | /api/v1/Events                   | Crear evento                               |
-| GET    | /api/v1/Sectors/event/{id}       | Sectores de un evento                      |
-| GET    | /api/v1/Seats/event/{id}         | Asientos de un evento                      |
-| POST   | /api/v1/Reservations             | Crear reserva (con control de concurrencia)|
-| POST   |/api/v1/Reservations/{id}/confirm |Confirmar compra (transaccional)            |
-| GET    | /api/v1/Reservations/user/{id}   | Reservas de un usuario                     |
-|GET     |/api/v1/AuditLogs                 |Ver registros de auditoría                  |
+| Método | Endpoint                           | Descripción                                 |
+|--------|------------------------------------|---------------------------------------------|
+| POST   | /api/v1/Auth/register              | Registrar usuario                           |
+| POST   | /api/v1/Auth/login                 | Iniciar sesión                              |
+| GET    | /api/v1/Events                     | Listar todos los eventos                    |
+| GET    | /api/v1/Events/{id}                | Obtener evento por ID                       |
+| POST   | /api/v1/Events                     | Crear evento                                |
+| GET    | /api/v1/Sectors/event/{id}         | Sectores de un evento                       |
+| GET    | /api/v1/Seats/{id}                 | Obtener asiento por ID                      |
+| GET    | /api/v1/Seats/event/{eventId}      | Asientos de un evento                       |
+| POST   | /api/v1/Reservations               | Crear reserva (con control de concurrencia) |
+| GET    | /api/v1/Reservations/user/{userId} | Reservas de un usuario                      |
+| POST   |/api/v1/Reservations/{id}/confirm   |Confirmar compra (transaccional)             |
+| DELETE | /api/v1/Reservations/{id}          | Cancelar reserva                            |
+| GET    | /api/v1/Reservations/user/{id}     | Reservas de un usuario                      |
+| GET    |/api/v1/AuditLogs                   |Ver registros de auditoría                   |
 
 Manejo de errores
 |Código                    |Situación                                                           |
