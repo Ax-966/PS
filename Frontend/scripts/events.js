@@ -267,5 +267,34 @@ const Reservations = {
     }
 
     return true;
-  }
+  },
+  // agrego codigo para mostrar Mis Entradas
+  async getByUser(userId) {
+    const token = Auth.getToken();
+
+    const response = await fetch(
+      `${API_BASE_URL}/Reservations/user/${userId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && {
+            Authorization: `Bearer ${token}`,
+          }),
+        },
+      }
+    );
+
+    if (!response.ok) {
+      let errorData = {};
+      try { errorData = await response.json(); } catch {}
+      const error = new Error(
+        errorData?.message || 'Error al obtener reservas.'
+      );
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.json();
+  }  // aqui finaliza el codigo agregado
 };
