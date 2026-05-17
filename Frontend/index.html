@@ -101,7 +101,7 @@
 
         <div class="nav-links">
           <button class="nav-link" data-view="home">Eventos</button>
-          <button class="nav-link" data-view="my-tickets">Mis entradas</button>
+          <button class="nav-link client-only hidden" data-view="my-tickets">Mis entradas</button> <!--/linea corregida -->
           <button class="nav-link admin-only hidden" data-view="admin">
             <span class="admin-badge">Admin</span>
           </button>
@@ -125,7 +125,7 @@
                 <span id="dd-role" class="dd-role"></span>
               </div>
               <div class="dropdown-divider"></div>
-              <button class="dropdown-item" onclick="UI.renderView('my-tickets');UI.closeUserMenu()" role="menuitem">
+              <button class="dropdown-item client-only hidden" onclick="UI.renderView('my-tickets');UI.closeUserMenu()" role="menuitem">
                 🎟️ Mis entradas
               </button>
               <button class="dropdown-item admin-only hidden" onclick="UI.renderView('admin');UI.closeUserMenu()" role="menuitem">

@@ -29,8 +29,14 @@ const UI = {
       });
     });
 
+    console.log('Usuario actual:', Auth.getUser());
+    console.log('Es admin?:', Auth.isAdmin());
+
     if (Auth.isAdmin()) {
       document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+    }
+    if (!Auth.isAdmin()) {
+      document.querySelectorAll('.client-only').forEach(el => el.classList.remove('hidden'));
     }
 
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
