@@ -30,9 +30,9 @@ public class ReservationTimeoutWorker : BackgroundService
 
             try
             {
+                var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var expiredReservations = await reservationRepo.GetExpiredReservationsAsync();
-                _logger.LogInformation($"Reservas expiradas encontradas: {expiredReservations.Count()}");
-
+               
                 foreach (var res in expiredReservations)
                 {
                     try
