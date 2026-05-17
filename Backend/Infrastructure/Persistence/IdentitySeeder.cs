@@ -34,6 +34,12 @@ public static class IdentitySeeder
                 Name     = "Gabriela",
                 Email    = "gabriela@ticketvivo.com",
                 Password = "Gaby123!"
+            },
+            new
+            {
+                Name     = "Julian",
+                Email    = "julian@ticketvivo.com",
+                Password = "July123!"
             }
         };
 

@@ -45,9 +45,9 @@ Frontend
 
 Credenciales de prueba
 
-| Usuario | Contraseña | Rol           |
-|---------|----------- |---------------|
-| admin   | admin123   | Administrador |
+| Name      | E-mail                 | Password          |Rol           |
+|-----------|------------------------|-------------------|--------------|
+| Julian    | julian@ticketvivo.com  | July123!          |Administrador |
 
 Funcionalidades implementadas
 
