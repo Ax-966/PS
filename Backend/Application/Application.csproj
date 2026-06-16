@@ -7,12 +7,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Interfaces/" />
+    <Folder Include="Interfaces/CQRS/" />
     <Folder Include="Models/" />
     <Folder Include="UseCases/" />
     <Folder Include="UseCases/Events/" />
     <Folder Include="UseCases/Events/Commands/" />
     <Folder Include="UseCases/Events/Queries/" />
+    <Folder Include="UseCases/Sectors/" />
+    <Folder Include="UseCases/Sectors/Handlers/" />
+    <Folder Include="UseCases/Sectors/Queries/" />
   </ItemGroup>
 
   <ItemGroup>

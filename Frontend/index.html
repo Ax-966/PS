@@ -1,11 +1,214 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    
-</body>
+<html lang="es" data-theme="dark">
+
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TicketAPPI — Entradas para Recitales</title>
+
+    <!-- Tipografías: Bebas Neue para títulos, DM Sans para cuerpo, DM Mono para datos -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles/styles.css" />
+    <style>@media print { .no-print { display: none !important; } }</style>
+		<link rel="icon" href="assets/icons/boleto.png" type="image/png">
+  </head>
+  
+  <body>
+
+		<!-- ============================================================
+         OVERLAY DE AUTENTICACIÓN
+      ============================================================ -->
+
+		<div id="auth-overlay" class="auth-overlay">
+      <div class="auth-bg-pattern"></div>
+      <div class="auth-card">
+
+        <div class="auth-logo">
+          TICKET<span class="accent">APPI</span>
+          <div class="auth-logo-sub">Plataforma de entradas</div>
+        </div>
+
+        <!-- Tabs login / registro -->
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-tab="login">Iniciar sesión</button>
+          <button class="auth-tab" data-tab="register">Registrarse</button>
+        </div>
+
+        <!-- Formulario de login -->
+        <div id="login-form" class="auth-form">
+          <div class="form-group">
+            <label for="login-username">Usuario</label>
+            <input type="text" id="login-username" placeholder="Ingresá tu usuario" autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="login-password">Contraseña</label>
+            <input type="password" id="login-password" placeholder="Ingresá tu contraseña" autocomplete="current-password" />
+          </div>
+          <div id="login-error" class="form-error" role="alert" aria-live="polite"></div>
+          <button class="btn-primary full-width" id="btn-login">Ingresar →</button>
+          <p class="auth-hint">Admin: <code>admin / admin123</code></p>
+        </div>
+
+        <!-- Formulario de registro -->
+        <div id="register-form" class="auth-form hidden">
+          <div class="form-group">
+            <label for="reg-username">Usuario</label>
+            <input type="text" id="reg-username" placeholder="Elegí un nombre de usuario" autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="reg-email">Email</label>
+            <input type="email" id="reg-email" placeholder="tu@email.com" autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="reg-password">Contraseña</label>
+            <input type="password" id="reg-password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+          </div>
+          <div id="register-error" class="form-error" role="alert" aria-live="polite"></div>
+          <button class="btn-primary full-width" id="btn-register">Crear cuenta →</button>
+        </div>
+
+      </div>
+    </div><!-- /auth-overlay -->
+
+
+    <!-- ============================================================
+        APLICACIÓN PRINCIPAL (visible solo al autenticarse)
+        ============================================================ -->
+    <div id="app" class="app hidden">
+
+      <!-- ---- BARRA DE NAVEGACIÓN ---- -->
+      <nav class="navbar" role="navigation" aria-label="Navegación principal">
+        <button class="nav-brand" data-view="home" aria-label="Ir al inicio">
+          TICKET<span class="accent">APPI</span>
+        </button>
+
+        <div class="nav-links">
+          <button class="nav-link" data-view="home">Eventos</button>
+          <button class="nav-link" data-view="my-tickets">Mis entradas</button>
+          <button class="nav-link admin-only hidden" data-view="admin">
+            <span class="admin-badge">Admin</span>
+          </button>
+        </div>
+
+        <div class="nav-actions">
+          <button id="theme-toggle" class="icon-btn" aria-label="Cambiar tema" title="Cambiar modo claro/oscuro">
+            <span class="theme-icon">☀</span>
+          </button>
+          <!-- Perfil de usuario con dropdown -->
+          <div class="nav-user" id="nav-user-area">
+            <button class="nav-user-btn" id="btn-user-menu" aria-label="Menú de usuario" aria-expanded="false">
+              <span class="user-avatar" id="user-avatar-char"></span>
+              <span id="nav-username" class="username-display"></span>
+              <span class="user-arrow">▾</span>
+            </button>
+            <div class="user-dropdown hidden" id="user-dropdown" role="menu">
+              <div class="dropdown-header">
+                <span id="dd-username" class="dd-name"></span>
+                <span id="dd-email" class="dd-email"></span>
+                <span id="dd-role" class="dd-role"></span>
+              </div>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item" onclick="UI.renderView('my-tickets');UI.closeUserMenu()" role="menuitem">
+                🎟️ Mis entradas
+              </button>
+              <button class="dropdown-item admin-only hidden" onclick="UI.renderView('admin');UI.closeUserMenu()" role="menuitem">
+                ⚙️ Panel Admin
+              </button>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item danger" id="btn-logout" role="menuitem" aria-label="Cerrar sesión">
+                ↩ Cerrar sesión
+              </button>
+            </div>
+          </div>
+          <!-- Hamburguesa mobile -->
+          <button class="hamburger" id="hamburger-btn" aria-label="Menú de navegación" aria-expanded="false">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      </nav><!-- /navbar -->
+
+      <!-- Menú mobile desplegable -->
+      <div class="mobile-nav hidden" id="mobile-nav" role="navigation" aria-label="Navegación mobile">
+        <button class="mobile-nav-link" data-view="home" onclick="UI.closeMobileNav()">🎸 Eventos</button>
+        <button class="mobile-nav-link" data-view="my-tickets" onclick="UI.closeMobileNav()">🎟️ Mis entradas</button>
+        <button class="mobile-nav-link admin-only hidden" data-view="admin" onclick="UI.closeMobileNav()">⚙️ Admin</button>
+        <div class="mobile-nav-divider"></div>
+        <button class="mobile-nav-link" id="btn-theme-mobile">🌗 Cambiar tema</button>
+      </div>
+
+
+      <!-- ---- CONTENIDO PRINCIPAL ---- -->
+      <main class="main-content" id="main-content" role="main">
+        <!-- Las vistas se renderizan aquí dinámicamente por app.js -->
+        <div class="loading-placeholder">
+          <div class="spinner"></div>
+        </div>
+      </main>
+
+
+      <!-- ---- PANEL FLOTANTE DE SELECCIÓN / CARRITO ---- -->
+      <aside id="selection-panel" class="selection-panel hidden" role="complementary" aria-label="Butacas seleccionadas">
+        <div class="selection-header">
+          <div class="selection-title-row">
+            <span class="selection-title">Mi selección</span>
+            <span class="selection-count" id="selection-count">0 butaca(s)</span>
+          </div>
+          <!-- Temporizador regresivo de 5 minutos -->
+          <div id="countdown-timer" class="countdown" role="timer" aria-live="polite" aria-label="Tiempo restante para confirmar"></div>
+        </div>
+
+        <div id="selection-list" class="selection-list" role="list"></div>
+
+        <div class="selection-footer">
+          <div class="selection-total-row">
+            <span class="total-label">Total</span>
+            <strong id="selection-total-amount" class="total-amount">$0</strong>
+          </div>
+          <button class="btn-purchase" id="btn-purchase">
+            Confirmar compra
+          </button>
+          <button class="btn-ghost-sm" id="btn-clear-selection">Cancelar selección</button>
+        </div>
+      </aside><!-- /selection-panel -->
+
+
+      <!-- ---- CONTENEDOR DE TOASTS (notificaciones) ---- -->
+      <div id="toast-container" class="toast-container" role="region" aria-label="Notificaciones" aria-live="polite"></div>
+
+    </div><!-- /app -->
+
+
+    <!-- ============================================================
+        TOOLTIP DE BUTACA (se posiciona por JS en hover)
+        ============================================================ -->
+    <div id="seat-tooltip" class="seat-tooltip hidden" role="tooltip" aria-hidden="true"></div>
+
+    <!-- ============================================================
+        MODAL GENÉRICO (se inyecta por JS cuando se necesita)
+        ============================================================ -->
+    <div id="modal-root"></div>
+
+
+    <!--
+      ORDEN DE CARGA DE MÓDULOS (obligatorio — cada archivo depende del anterior):
+      1. constants.js  → constantes de negocio globales (SEAT, ACTION, etc.)
+      2. store.js      → wrapper de localStorage
+      3. audit.js      → registro inmutable de acciones (depende de store)
+      4. auth.js       → autenticación y sesión (depende de store + constants)
+      5. events.js     → CRUD de eventos + lógica de butacas (depende de todo lo anterior)
+      6. ui.js         → renderizado de vistas + Background worker (depende de todo)
+      7. main.js       → punto de entrada + listeners de auth (debe ir último)
+    -->
+    <script src="/scripts/constants.js"></script>
+    <script src="/scripts/store.js"></script>
+    <script src="/scripts/audit.js"></script>
+    <script src="/scripts/auth.js"></script>
+    <script src="/scripts/api.js"></script>
+    <script src="/scripts/events.js"></script>
+    <script src="/scripts/ui.js"></script>
+    <script src="/scripts/main.js"></script>
+  </body>
+
 </html>

@@ -1,13 +1,73 @@
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Infrastructure.Persistence;
+using Application.Interfaces;
+using Application.UseCases.Events.Handlers;
+using Application.UseCases.Sectors.Handlers;
+using Application.UseCases.Seats.Handlers;
+using Application.UseCases.Reservations.Handlers;
+using Infrastructure.Repositories;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
+// ─── Configuración de la BD ───────────────────────────────────────
+var conStrBuilder = new SqlConnectionStringBuilder(
+    builder.Configuration.GetConnectionString("DefaultConnection")
+);
+
+conStrBuilder.Password =
+    builder.Configuration["DbPassword"] ?? "";
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(conStrBuilder.ConnectionString)
+);
+
+
+// ─── Servicios ────────────────────────────────────────────────────
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+
+// ─── CORS ─────────────────────────────────────────────────────────
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("frontend", policy =>
+    {
+        policy
+            .WithOrigins(
+                "http://127.0.0.1:5500",
+                "http://localhost:5500"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
+
+// ─── Repositorios ─────────────────────────────────────────────────
+builder.Services.AddScoped<IEventRepository, EventRepository>();
+builder.Services.AddScoped<ISeatRepository, SeatRepository>();
+builder.Services.AddScoped<ISectorRepository, SectorRepository>();
+builder.Services.AddScoped<IReservationRepository, ReservationRepository>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLRepository>();
+
+
+// ─── Handlers ─────────────────────────────────────────────────────
+builder.Services.AddScoped<CreateEventHandler>();
+builder.Services.AddScoped<GetAllEventsHandler>();
+builder.Services.AddScoped<GetEventByIdHandler>();
+builder.Services.AddScoped<GetSeatsByEventHandler>();
+builder.Services.AddScoped<GetSectorsByEventHandler>();
+builder.Services.AddScoped<CreateReservationHandler>();
+builder.Services.AddScoped<GetReservationByUserHandler>();
+
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+
+// ─── Pipeline HTTP ────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -16,29 +76,20 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+app.UseCors("frontend");
 
-app.MapGet("/weatherforecast", () =>
+app.UseAuthorization();
+
+app.MapControllers();
+
+
+// ─── Seed ─────────────────────────────────────────────────────────
+using (var scope = app.Services.CreateScope())
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+    var context =
+        scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    await DbSeeder.SeedAsync(context);
+}
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
